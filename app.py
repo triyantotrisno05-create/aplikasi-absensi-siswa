@@ -177,16 +177,8 @@ tab1, tab2, tab3 = st.tabs([
 # ------------------------------------------
 with tab1:
     st.subheader("📝 Edit Data Absensi Bulanan Siswa")
-    df_to_edit = st.session_state.data_absensi.copy().reset_index(drop=True)
-    edited_df = st.data_editor(df_to_edit, num_rows="dynamic", use_container_width=True, hide_index=True, key="edit_bulanan")
     
-    if st.button("💾 Simpan Data Absensi", type="primary"):
-        edited_df["No"] = range(1, len(edited_df) + 1)
-        st.session_state.data_absensi = edited_df
-        save_data(edited_df, FILE_ABSENSI)
-        st.success("✅ Data Absensi Bulanan berhasil disimpan!")
-
-    # Kalkulasi Otomatis Lengkap Sesuai Gambar
+    # Hitung nilai JUMLAH, JUMLAH HADIR, dan Persentase secara dinamis
     df_calc = st.session_state.data_absensi.copy()
     for col in ["HBE", "S", "I", "A"]:
         df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
@@ -194,15 +186,29 @@ with tab1:
     df_calc["JUMLAH"] = df_calc["S"] + df_calc["I"] + df_calc["A"]
     df_calc["JUMLAH HADIR"] = df_calc["HBE"] - df_calc["JUMLAH"]
     
-    # Persentase per Siswa
     df_calc["S %"] = df_calc.apply(lambda r: round((r["S"] / r["HBE"]) * 100) if r["HBE"] > 0 else 0, axis=1)
     df_calc["I %"] = df_calc.apply(lambda r: round((r["I"] / r["HBE"]) * 100) if r["HBE"] > 0 else 0, axis=1)
     df_calc["A %"] = df_calc.apply(lambda r: round((r["A"] / r["HBE"]) * 100) if r["HBE"] > 0 else 0, axis=1)
     df_calc["PRESENTASE KEHADIRAN"] = df_calc.apply(lambda r: round((r["JUMLAH HADIR"] / r["HBE"]) * 100) if r["HBE"] > 0 else 100, axis=1)
 
-    st.markdown("---")
-    st.subheader("📊 Preview Tabel Laporan Rekapitulasi Bulanan")
-    st.dataframe(df_calc, use_container_width=True, hide_index=True)
+    # Tabel Data Editor Lengkap dengan Kolom JUMLAH HADIR
+    edited_df = st.data_editor(
+        df_calc[["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A", "JUMLAH", "JUMLAH HADIR", "PRESENTASE KEHADIRAN"]],
+        disabled=["No", "JUMLAH", "JUMLAH HADIR", "PRESENTASE KEHADIRAN"],
+        num_rows="dynamic",
+        use_container_width=True,
+        hide_index=True,
+        key="edit_bulanan_v3"
+    )
+    
+    if st.button("💾 Simpan Data Absensi", type="primary"):
+        # Ambil kembali hanya kolom input utama untuk disimpan ke CSV
+        save_df = edited_df[["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]].copy()
+        save_df["No"] = range(1, len(save_df) + 1)
+        st.session_state.data_absensi = save_df
+        save_data(save_df, FILE_ABSENSI)
+        st.success("✅ Data Absensi Bulanan berhasil disimpan!")
+        st.rerun()
 
     # FUNCTION EXPORT EXCEL PERSIS SESUAI GAMBAR CONTOH
     def generate_excel_persis_gambar(df, tempat_c, tgl_c, wali, nip):
@@ -316,6 +322,7 @@ with tab1:
         ws.cell(row=curr_row, column=7, value=tot_izin).alignment = align_center
         ws.cell(row=curr_row, column=8, value=tot_alpha).alignment = align_center
         ws.cell(row=curr_row, column=9, value=tot_absen).alignment = align_center
+        ws.cell(row=curr_row, column=10, value=tot_hadir).alignment = align_center
         
         ws.cell(row=curr_row, column=11, value=f"{avg_s_pct}%").alignment = align_center
         ws.cell(row=curr_row, column=12, value=f"{avg_i_pct}%").alignment = align_center
@@ -328,7 +335,7 @@ with tab1:
             cell.border = thin_border
             cell.fill = fill_yellow
 
-        # 4. REKAP LAKI-LAKI & PEREMPUAN DI BOWER
+        # 4. REKAP LAKI-LAKI & PEREMPUAN
         curr_row += 2
         ws.cell(row=curr_row, column=1, value="Laki - Laki").font = font_bold
         ws.cell(row=curr_row, column=3, value=":").font = font_bold
@@ -344,7 +351,7 @@ with tab1:
         ws.cell(row=curr_row, column=3, value=":").font = font_bold
         ws.cell(row=curr_row, column=4, value=count_l + count_p).font = font_bold
 
-        # 5. TANDA TANGAN WALI KELAS DI KANAN BAWAH
+        # 5. TANDA TANGAN WALI KELAS
         tgl_str = tgl_c.strftime("%d %B %Y") if isinstance(tgl_c, date) else str(tgl_c)
         ws.cell(row=curr_row-2, column=10, value=f"{tempat_c}, {tgl_str}").font = font_bold
         ws.cell(row=curr_row-1, column=10, value=f"Wali Kelas {kelas}").font = font_bold
@@ -365,7 +372,6 @@ with tab1:
         wb.save(buffer)
         return buffer.getvalue()
 
-    # Tombol Download Excel Siap Cetak PERSIS Gambar
     excel_bulanan_bytes = generate_excel_persis_gambar(
         df_calc, tempat_cetak, tgl_cetak, wali_kelas, nip_wali
     )
