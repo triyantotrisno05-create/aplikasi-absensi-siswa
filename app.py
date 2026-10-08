@@ -1,234 +1,250 @@
 import streamlit as st
 import pandas as pd
 import io
-import datetime
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 
-st.set_page_config(page_title="Sistem Laporan Absensi Siswa", layout="wide")
+st.set_page_config(page_title="Sistem Absensi & Mutasi Siswa", layout="wide")
 
-st.title("📊 Aplikasi Laporan Absensi Bulanan Siswa")
+st.title("📋 Sistem Laporan Absensi & Mutasi Siswa")
+st.caption("Aplikasi Rekapitulasi Absensi Bulanan, Harian, dan Mutasi Siswa Otomatis")
 
-# --- SIDEBAR PENGATURAN ---
-st.sidebar.header("⚙️ Pengaturan Laporan")
-nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
-tahun_ajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
-kelas = st.sidebar.text_input("Kelas", "IX C")
+# Sidebar - Informasi Sekolah & Kelas
+st.sidebar.header("🏫 Data Sekolah & Kelas")
+nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SDN / SMPN / SMAN Negeri")
+kelas = st.sidebar.text_input("Kelas", "Kelas 5A")
+bulan_tahun = st.sidebar.text_input("Bulan / Periode", "Oktober 2026")
+wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Guru Pembimbing, S.Pd.")
 
-# Input Tanggal Lengkap (Tanggal, Bulan, Tahun)
-tgl_laporan = st.sidebar.date_input("Tanggal Laporan", datetime.date.today())
-# Format Tanggal ke Bahasa Indonesia (contoh: 25 April 2026)
-bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-tgl_formatted = f"{tgl_laporan.day} {bulan_indo[tgl_laporan.month - 1]} {tgl_laporan.year}"
+# Tab Fitur
+tab1, tab2, tab3 = st.tabs(["📊 1. Rekapitulasi Absensi Bulanan", "📅 2. Kehadiran Harian Siswa", "🔄 3. Mutasi Siswa"])
 
-hbe = st.sidebar.number_input("Hari Belajar Efektif (HBE)", min_value=1, value=25)
-wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Triyanto trisno, S.Pd")
-nip_wali = st.sidebar.text_input("NIP Wali Kelas", "NIP.1993052020242110006")
-
-# --- DATA INITIALIZATION ---
-if 'data_absensi' not in st.session_state:
-    st.session_state.data_absensi = pd.DataFrame([
-        {"Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Sakit (S)": 0, "Izin (I)": 0, "Alpha (A)": 0},
-        {"Nama Murid": "AHMAD YANI", "L/P": "L", "Sakit (S)": 0, "Izin (I)": 0, "Alpha (A)": 2},
-        {"Nama Murid": "AL JAMI", "L/P": "L", "Sakit (S)": 1, "Izin (I)": 0, "Alpha (A)": 3},
-        {"Nama Murid": "AYU NINGSIH", "L/P": "P", "Sakit (S)": 0, "Izin (I)": 0, "Alpha (A)": 0},
-        {"Nama Murid": "EPRI SASKIA", "L/P": "P", "Sakit (S)": 0, "Izin (I)": 0, "Alpha (A)": 2},
-    ])
-
-if 'data_mutasi' not in st.session_state:
-    st.session_state.data_mutasi = pd.DataFrame([
-        {"Nama Siswa": "", "NIS/NISN": "", "L/P": "L", "Agama": "", "Umur": "", "Pekerjaan Orang Tua": "", "Tgl. Keluar": "", "Tgl. Masuk": ""}
-    ])
-
-tab1, tab2, tab3 = st.tabs(["📝 Data & Absensi Siswa", "🔄 Mutasi Siswa", "📥 Unduh Laporan Excel"])
-
-def safe_int(val):
-    try:
-        if pd.isna(val) or val is None or str(val).strip() == "":
-            return 0
-        return int(float(val))
-    except:
-        return 0
-
-# --- TAB 1: DATA SISWA & ABSENSI ---
+# ==========================================
+# TAB 1: REKAPITULASI ABSENSI BULANAN
+# ==========================================
 with tab1:
-    st.subheader("📋 Input & Edit Data Absensi Siswa")
-    st.info(f"📅 **Tanggal Laporan Dipilih:** {tgl_formatted}")
+    st.subheader("📊 Rekapitulasi Absensi Bulanan")
+    st.write("Masukkan jumlah Sakit (S), Izin (I), dan Alpa (A) untuk setiap siswa.")
+
+    # Data awal contoh jika belum ada
+    if "data_bulanan" not in st.session_state:
+        st.session_state.data_bulanan = pd.DataFrame({
+            "No": [1, 2, 3],
+            "NIS/NISN": ["1001", "1002", "1003"],
+            "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
+            "Sakit (S)": [1, 0, 2],
+            "Izin (I)": [0, 1, 0],
+            "Alpa (A)": [0, 0, 1]
+        })
+
+    # Form/Editor Input Data
+    edited_df = st.data_editor(
+        st.session_state.data_bulanan,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_bulanan"
+    )
+
+    # Kalkulasi Otomatis
+    df_calc = edited_df.copy()
+    # Pastikan numerik
+    for col in ["Sakit (S)", "Izin (I)", "Alpa (A)"]:
+        df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
+
+    df_calc["Total Ketidakhadiran"] = df_calc["Sakit (S)"] + df_calc["Izin (I)"] + df_calc["A"] if "A" in df_calc else df_calc["Sakit (S)"] + df_calc["Izin (I)"] + df_calc["Alpa (A)"]
     
-    with st.form("form_absensi"):
-        df_edited = st.data_editor(
-            st.session_state.data_absensi,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Nama Murid": st.column_config.TextColumn("Nama Murid", required=True),
-                "L/P": st.column_config.SelectboxColumn("L/P", options=["L", "P"], required=True, default="L"),
-                "Sakit (S)": st.column_config.NumberColumn("Sakit (S)", min_value=0, default=0),
-                "Izin (I)": st.column_config.NumberColumn("Izin (I)", min_value=0, default=0),
-                "Alpha (A)": st.column_config.NumberColumn("Alpha (A)", min_value=0, default=0),
-            },
-            key="editor_absensi"
-        )
-        submit_btn = st.form_submit_button("💾 Simpan & Perbarui Rekap")
-        if submit_btn:
-            st.session_state.data_absensi = df_edited
-            st.success("Data berhasil diperbarui!")
+    # Asumsi Hari Efektif dalam 1 Bulan = 24 Hari
+    hari_efektif = st.number_input("Jumlah Hari Efektif Belajar (Bulan Ini)", min_value=1, value=24)
+    df_calc["% Kehadiran"] = ((hari_efektif - df_calc["Total Ketidakhadiran"]) / hari_efektif * 100).round(1)
+    df_calc["% Kehadiran"] = df_calc["% Kehadiran"].apply(lambda x: f"{max(0, x)}%")
 
-    df_curr = st.session_state.data_absensi.copy()
-    
-    df_curr['Sakit (S)'] = df_curr['Sakit (S)'].apply(safe_int)
-    df_curr['Izin (I)'] = df_curr['Izin (I)'].apply(safe_int)
-    df_curr['Alpha (A)'] = df_curr['Alpha (A)'].apply(safe_int)
-    df_curr['Total Absen'] = df_curr['Sakit (S)'] + df_curr['Izin (I)'] + df_curr['Alpha (A)']
-    df_curr['Total Hadir'] = df_curr.apply(lambda r: max(0, hbe - r['Total Absen']), axis=1)
+    st.markdown("### 📈 Rangkuman Total & Persentase")
+    st.dataframe(df_calc, use_container_width=True)
 
-    tot_s = df_curr['Sakit (S)'].sum()
-    tot_i = df_curr['Izin (I)'].sum()
-    tot_a = df_curr['Alpha (A)'].sum()
-    tot_absen_all = tot_s + tot_i + tot_a
-    tot_hadir_all = df_curr['Total Hadir'].sum()
-    tot_kesempatan_hadir = len(df_curr) * hbe
-    persen_hadir_total = (tot_hadir_all / tot_kesempatan_hadir * 100) if tot_kesempatan_hadir > 0 else 0
-
-    st.markdown("---")
-    st.subheader("📊 Rekapitulasi Otomatis")
-    summary_df = pd.DataFrame([{
-        "Total Siswa": len(df_curr),
-        "Laki-laki (L)": len(df_curr[df_curr['L/P'] == 'L']),
-        "Perempuan (P)": len(df_curr[df_curr['L/P'] == 'P']),
-        "Total Sakit (S)": tot_s,
-        "Total Izin (I)": tot_i,
-        "Total Alpha (A)": tot_a,
-        "Total Absen": tot_absen_all,
-        "Total Hadir": tot_hadir_all,
-        "Persentase Kehadiran Kelas": f"{persen_hadir_total:.2f}%"
-    }])
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
-# --- TAB 2: MUTASI SISWA ---
-with tab2:
-    st.subheader("🔄 Data Mutasi Siswa (Masuk / Keluar)")
-    with st.form("form_mutasi"):
-        df_mutasi_edited = st.data_editor(
-            st.session_state.data_mutasi,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="editor_mutasi"
-        )
-        submit_mutasi = st.form_submit_button("💾 Simpan Data Mutasi")
-        if submit_mutasi:
-            st.session_state.data_mutasi = df_mutasi_edited
-            st.success("Data mutasi berhasil diperbarui!")
-
-# --- TAB 3: UNDUH EXCEL ---
-with tab3:
-    st.subheader("📥 Export ke Format Excel")
-    
-    def generate_excel():
+    # Fungsi Export Excel Terformat
+    def generate_excel_rekap():
         output = io.BytesIO()
-        wb = Workbook()
-        
-        font_title = Font(name="Calibri", size=12, bold=True)
-        font_header = Font(name="Calibri", size=10, bold=True)
-        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-        align_center = Alignment(horizontal="center", vertical="center")
-        align_left = Alignment(horizontal="left", vertical="center")
-
+        wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "REKAP ABSEN"
-        
-        ws["A1"] = "REKAPITULASI ABSENSI SISWA"
-        ws["A1"].font = font_title
-        ws["A2"] = nama_sekolah
-        ws["A2"].font = font_title
-        ws["A3"] = f"TAHUN PELAJARAN {tahun_ajaran}"
-        ws["A3"].font = font_title
-        ws["A4"] = f"KELAS : {kelas}"
-        ws["A4"].font = font_header
+        ws.title = "Rekap Absensi Bulanan"
 
-        headers = ["NO", "NAMA MURID", "L/P", "HBE", "SAKIT (S)", "IZIN (I)", "ALPHA (A)", "JUMLAH ABSEN", "JUMLAH HADIR", "PRESENTASE HADIR"]
+        # Judul Laporan
+        ws.append([nama_sekolah.upper()])
+        ws.append([f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}"])
+        ws.append([f"PERIODE: {bulan_tahun.upper()}"])
         ws.append([])
+
+        # Header Tabel
+        headers = ["No", "NIS/NISN", "Nama Siswa", "Sakit (S)", "Izin (I)", "Alpa (A)", "Total Absen", "% Kehadiran"]
         ws.append(headers)
-        header_row = 6
-        
-        for col in range(1, 11):
-            cell = ws.cell(row=header_row, column=col)
-            cell.font = font_header
-            cell.alignment = align_center
-            cell.border = thin_border
 
-        df = st.session_state.data_absensi
-        start_row = header_row + 1
-        
-        for idx, r in df.iterrows():
-            row_num = start_row + idx
-            s = safe_int(r.get('Sakit (S)'))
-            i = safe_int(r.get('Izin (I)'))
-            a = safe_int(r.get('Alpha (A)'))
-            
-            nama = str(r.get('Nama Murid', '')) if pd.notnull(r.get('Nama Murid')) else ""
-            lp = str(r.get('L/P', 'L')) if pd.notnull(r.get('L/P')) else "L"
-            
-            ws.cell(row=row_num, column=1, value=idx+1)
-            ws.cell(row=row_num, column=2, value=nama)
-            ws.cell(row=row_num, column=3, value=lp)
-            ws.cell(row=row_num, column=4, value=hbe)
-            ws.cell(row=row_num, column=5, value=s)
-            ws.cell(row=row_num, column=6, value=i)
-            ws.cell(row=row_num, column=7, value=a)
-            ws.cell(row=row_num, column=8, value=f"=SUM(E{row_num}:G{row_num})")
-            ws.cell(row=row_num, column=9, value=f"=MAX(0, D{row_num}-H{row_num})")
-            
-            cell_p = ws.cell(row=row_num, column=10, value=f"=I{row_num}/D{row_num}")
-            cell_p.number_format = "0.0%"
-            
-            for col in range(1, 11):
-                c = ws.cell(row=row_num, column=col)
-                c.border = thin_border
-                c.alignment = align_center if col != 2 else align_left
+        # Isi Data
+        for _, row in df_calc.iterrows():
+            ws.append([
+                row.get("No", ""),
+                row.get("NIS/NISN", ""),
+                row.get("Nama Siswa", ""),
+                row.get("Sakit (S)", 0),
+                row.get("Izin (I)", 0),
+                row.get("Alpa (A)", 0),
+                row.get("Total Ketidakhadiran", 0),
+                row.get("% Kehadiran", "100%")
+            ])
 
-        end_row = start_row + len(df) - 1
-        total_row = end_row + 1
+        # Baris Jumlah Total
+        last_row = ws.max_row
+        start_data_row = 5
+        ws.append([
+            "JUMLAH TOTAL", "", "",
+            f"=SUM(D{start_data_row}:D{last_row})",
+            f"=SUM(E{start_data_row}:E{last_row})",
+            f"=SUM(F{start_data_row}:F{last_row})",
+            f"=SUM(G{start_data_row}:G{last_row})",
+            ""
+        ])
 
-        # Baris Rekapitulasi Total di Bawah Tabel
-        ws.cell(row=total_row, column=2, value="JUMLAH TOTAL").font = font_header
-        ws.cell(row=total_row, column=4, value=f"=SUM(D{start_row}:D{end_row})").font = font_header
-        ws.cell(row=total_row, column=5, value=f"=SUM(E{start_row}:E{end_row})").font = font_header
-        ws.cell(row=total_row, column=6, value=f"=SUM(F{start_row}:F{end_row})").font = font_header
-        ws.cell(row=total_row, column=7, value=f"=SUM(G{start_row}:G{end_row})").font = font_header
-        ws.cell(row=total_row, column=8, value=f"=SUM(H{start_row}:H{end_row})").font = font_header
-        ws.cell(row=total_row, column=9, value=f"=SUM(I{start_row}:I{end_row})").font = font_header
-        
-        cell_tot_p = ws.cell(row=total_row, column=10, value=f"=I{total_row}/D{total_row}")
-        cell_tot_p.font = font_header
-        cell_tot_p.number_format = "0.0%"
+        # Styling Excel
+        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+        title_font = Font(name="Arial", size=12, bold=True)
+        thin_border = Border(
+            left=Side(style='thin', color='D9D9D9'),
+            right=Side(style='thin', color='D9D9D9'),
+            top=Side(style='thin', color='D9D9D9'),
+            bottom=Side(style='thin', color='D9D9D9')
+        )
 
-        for col in range(1, 11):
-            c = ws.cell(row=total_row, column=col)
-            c.border = thin_border
-            c.alignment = align_center if col != 2 else align_left
+        for cell in ws[1]:
+            cell.font = title_font
+        for cell in ws[2]:
+            cell.font = title_font
 
+        # Format Header
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=5, column=col_num)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Format Isi & Border
+        for r in range(5, ws.max_row + 1):
+            for c in range(1, len(headers) + 1):
+                cell = ws.cell(row=r, column=c)
+                cell.border = thin_border
+                if c in [1, 2, 4, 5, 6, 7, 8]:
+                    cell.alignment = Alignment(horizontal="center")
+
+        # Format Baris Total
+        total_row = ws.max_row
+        ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
+        for c in range(1, len(headers) + 1):
+            cell = ws.cell(row=total_row, column=c)
+            cell.font = Font(name="Arial", size=11, bold=True)
+            cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+
+        # Tanda Tangan
+        ws.append([])
+        ws.append([])
+        ws.append(["", "", "", "", "", "", "Wali Kelas,"])
+        ws.append([])
+        ws.append([])
+        ws.append(["", "", "", "", "", "", f"({wali_kelas})"])
+
+        # Auto Adjust Column Width
         for col in ws.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
-            col_letter = col[0].column_letter
-            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
-
-        # Tanda Tangan dengan Tanggal Lengkap
-        ttd_row = total_row + 3
-        lokasi = nama_sekolah.split()[-1] if len(nama_sekolah.split()) > 0 else "Nanga Mahap"
-        ws.cell(row=ttd_row, column=8, value=f"{lokasi}, {tgl_formatted}")
-        ws.cell(row=ttd_row+1, column=8, value=f"Wali Kelas {kelas}")
-        ws.cell(row=ttd_row+4, column=8, value=wali_kelas).font = font_header
-        ws.cell(row=ttd_row+5, column=8, value=nip_wali)
+            col_letter = get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
         wb.save(output)
-        output.seek(0)
-        return output
+        return output.getvalue()
 
-    excel_file = generate_excel()
     st.download_button(
-        label="📥 Download File Excel Rekap Bulanan",
-        data=excel_file,
-        file_name=f"ABSENSI_{kelas}_{tgl_formatted.replace(' ', '_')}.xlsx",
+        label="📥 Download Excel Rekap Bulanan",
+        data=generate_excel_rekap(),
+        file_name=f"Rekap_Absensi_{kelas}_{bulan_tahun}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+# ==========================================
+# TAB 2: KEHADIRAN SISWA PER HARI
+# ==========================================
+with tab2:
+    st.subheader("📅 Kehadiran Harian Siswa")
+    tgl_pilih = st.date_input("Pilih Tanggal Absensi")
+
+    if "data_harian" not in st.session_state:
+        st.session_state.data_harian = pd.DataFrame({
+            "No": [1, 2, 3],
+            "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
+            "Status Kehadiran": ["Hadir", "Hadir", "Izin"],
+            "Keterangan Catatan": ["-", "-", "Acara Keluarga"]
+        })
+
+    edited_harian = st.data_editor(
+        st.session_state.data_harian,
+        column_config={
+            "Status Kehadiran": st.column_config.SelectboxColumn(
+                "Status Kehadiran",
+                options=["Hadir", "Sakit", "Izin", "Alpa"],
+                required=True
+            )
+        },
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_harian"
+    )
+
+    # Ringkasan Harian
+    summary_harian = edited_harian["Status Kehadiran"].value_counts().reset_index()
+    summary_harian.columns = ["Status", "Jumlah Siswa"]
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown(f"**Ringkasan Absensi Tanggal: {tgl_pilih.strftime('%d-%m-%Y')}**")
+        st.dataframe(summary_harian, use_container_width=True)
+    with col_b:
+        total_siswa = len(edited_harian)
+        hadir_count = (edited_harian["Status Kehadiran"] == "Hadir").sum()
+        persen_hadir = (hadir_count / total_siswa * 100) if total_siswa > 0 else 0
+        st.metric("Persentase Kehadiran Harian", f"{persen_hadir:.1f}%")
+
+# ==========================================
+# TAB 3: MUTASI SISWA
+# ==========================================
+with tab3:
+    st.subheader("🔄 Catatan Mutasi Siswa (Masuk / Keluar)")
+    st.caption("Pencatatan riwayat perubahan data siswa di kelas.")
+
+    if "data_mutasi" not in st.session_state:
+        st.session_state.data_mutasi = pd.DataFrame({
+            "No": [1],
+            "Tanggal": ["2026-10-01"],
+            "Nama Siswa": ["Eko Prasetyo"],
+            "Jenis Mutasi": ["Masuk"],
+            "Asal / Tujuan Sekolah": ["SDN 02 Pagi"],
+            "Alasan": ["Pindah Tugas Orang Tua"]
+        })
+
+    edited_mutasi = st.data_editor(
+        st.session_state.data_mutasi,
+        column_config={
+            "Jenis Mutasi": st.column_config.SelectboxColumn(
+                "Jenis Mutasi",
+                options=["Masuk", "Keluar"],
+                required=True
+            )
+        },
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_mutasi"
+    )
+
+    st.markdown("### 📊 Total Mutasi")
+    m_masuk = (edited_mutasi["Jenis Mutasi"] == "Masuk").sum()
+    m_keluar = (edited_mutasi["Jenis Mutasi"] == "Keluar").sum()
+    
+    col_m1, col_m2 = st.columns(2)
+    col_m1.metric("Siswa Masuk", f"{m_masuk} Orang")
+    col_m2.metric("Siswa Keluar", f"{m_keluar} Orang")
