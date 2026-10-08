@@ -103,13 +103,15 @@ nama_bulan = [
 ]
 
 # ------------------------------------------
-# TAB 1: REKAP ABSENSI BULANAN
+# TAB 1: REKAP ABSENSI BULANAN (FORMAT PERSIS GAMBAR)
 # ------------------------------------------
 with tab1:
-    st.subheader("📊 Rekap Absensi Bulanan")
-    st.caption("Ringkasan akumulasi absensi siswa per bulan.")
+    st.subheader("📊 Rekap Absensi Bulanan (Sesuai Format Gambar Excel)")
+    st.caption(
+        "Lakukan pengeditan data absensi bulanan atau unduh format rekap lengkap."
+    )
 
-    col_b1, col_b2 = st.columns(2)
+    col_b1, col_b2, col_b3 = st.columns([2, 2, 2])
     with col_b1:
         bln_rekap = st.selectbox(
             "Pilih Bulan Rekap",
@@ -119,39 +121,227 @@ with tab1:
         )
     with col_b2:
         thn_rekap = st.number_input(
-            "Pilih Tahun Rekap", value=datetime.now().year, key="thn_tab1"
+            "Pilih Tahun Rekap",
+            value=datetime.now().year,
+            key="thn_tab1",
+        )
+    with col_b3:
+        hbe_input = st.number_input(
+            "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
-    # Tampilkan Data Siswa jika sudah di-upload di Tab 3
+    # Buat Data Frame Siswa
     if "df_siswa" in st.session_state and not st.session_state[
         "df_siswa"
     ].empty:
-        df_display = st.session_state["df_siswa"].copy()
-        if "Sakit (S)" not in df_display.columns:
-            df_display["Sakit (S)"] = 0
-            df_display["Izin (I)"] = 0
-            df_display["Alpha (A)"] = 0
-            df_display["Total Absen"] = 0
-            df_display["Persentase Kehadiran"] = "100%"
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        df_base = st.session_state["df_siswa"].copy()
     else:
-        # Default Data Dummy
-        data_bulanan = {
-            "NO": [1, 2, 3],
-            "NOMOR INDUK": ["148355770", "3143662047", "3137752600"],
-            "NAMA MURID": ["ACHMAD SUHADAK", "AL ZAHARA PERTIWI", "ALPITRI SARI"],
-            "L/P": ["L", "P", "P"],
-            "Sakit (S)": [0, 0, 0],
-            "Izin (I)": [0, 0, 0],
-            "Alpha (A)": [0, 0, 0],
-            "Total Absen": [0, 0, 0],
-            "Persentase Kehadiran": ["100%", "100%", "100%"],
-        }
-        st.dataframe(
-            pd.DataFrame(data_bulanan),
-            use_container_width=True,
-            hide_index=True,
+        # Default data contoh jika belum upload file
+        default_data = [
+            ("1", "ABANG MUSHAVIR EDO", "L", "148355770"),
+            ("2", "AHMAD YANI", "L", "3143662047"),
+            ("3", "AL JAMI", "L", "3137752600"),
+            ("4", "AYU NINGSIH", "P", "3139019097"),
+            ("5", "EPRI SASKIA", "P", "3131994928"),
+            ("6", "EVA DWI AGVENESA", "P", "3134410167"),
+            ("7", "FAKHRY LIANDRA WIJAYA", "L", "0144474494"),
+            ("8", "FATIRTA LAJESON", "L", "3133814641"),
+        ]
+        df_base = pd.DataFrame(
+            default_data, columns=["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]
         )
+
+    session_key_rekap = f"df_rekap_{bln_rekap}_{thn_rekap}"
+
+    if session_key_rekap not in st.session_state:
+        df_init = df_base.copy()
+        df_init["HBE"] = hbe_input
+        df_init["S"] = 0
+        df_init["I"] = 0
+        df_init["A"] = 0
+        st.session_state[session_key_rekap] = df_init
+
+    # Fungsi Hitung Rekapitulasi Bulanan Lengkap Sesuai Format
+    def hitung_rekap_bulanan(df, hbe_val):
+        df_calc = df.copy()
+
+        jml_absen_list = []
+        jml_hadir_list = []
+        pct_s_list = []
+        pct_i_list = []
+        pct_a_list = []
+        pct_hadir_list = []
+
+        for _, row in df_calc.iterrows():
+            s = int(row["S"]) if str(row["S"]).isdigit() else 0
+            i = int(row["I"]) if str(row["I"]).isdigit() else 0
+            a = int(row["A"]) if str(row["A"]).isdigit() else 0
+
+            tot_absen = s + i + a
+            tot_hadir = max(0, hbe_val - tot_absen)
+
+            pct_s = round((s / hbe_val) * 100) if hbe_val > 0 else 0
+            pct_i = round((i / hbe_val) * 100) if hbe_val > 0 else 0
+            pct_a = round((a / hbe_val) * 100) if hbe_val > 0 else 0
+            pct_hadir = (
+                round((tot_hadir / hbe_val) * 100) if hbe_val > 0 else 0
+            )
+
+            jml_absen_list.append(tot_absen)
+            jml_hadir_list.append(tot_hadir)
+            pct_s_list.append(f"{pct_s}%")
+            pct_i_list.append(f"{pct_i}%")
+            pct_a_list.append(f"{pct_a}%")
+            pct_hadir_list.append(f"{pct_hadir}%")
+
+        df_calc["HBE"] = hbe_val
+        df_calc["JUMLAH ABSEN"] = jml_absen_list
+        df_calc["JUMLAH HADIR"] = jml_hadir_list
+        df_calc["PRESENTASE S"] = pct_s_list
+        df_calc["PRESENTASE I"] = pct_i_list
+        df_calc["PRESENTASE A"] = pct_a_list
+        df_calc["PRESENTASE KEHADIRAN"] = pct_hadir_list
+
+        return df_calc
+
+    # Editor Tabel Streamlit
+    df_rekap_edited = st.data_editor(
+        st.session_state[session_key_rekap],
+        key=f"editor_{session_key_rekap}",
+        use_container_width=True,
+        column_config={
+            "NO": st.column_config.TextColumn("NO"),
+            "NAMA MURID": st.column_config.TextColumn("NAMA MURID"),
+            "L/P": st.column_config.TextColumn("L/P"),
+            "NOMOR INDUK": st.column_config.TextColumn("NOMOR INDUK"),
+            "HBE": st.column_config.NumberColumn("HBE"),
+            "S": st.column_config.NumberColumn("S (Sakit)", min_value=0),
+            "I": st.column_config.NumberColumn("I (Izin)", min_value=0),
+            "A": st.column_config.NumberColumn("A (Alpha)", min_value=0),
+        },
+        hide_index=True,
+    )
+
+    df_final_rekap = hitung_rekap_bulanan(df_rekap_edited, hbe_input)
+
+    # Tampilkan Ringkasan Kalkulasi Tabel
+    st.write("### Preview Rekapitulasi Terhitung:")
+    st.dataframe(df_final_rekap, use_container_width=True, hide_index=True)
+
+    # Function Generate HTML/Excel persis format gambar
+    def generate_excel_html(df_data, bulan, tahun, hbe):
+        tot_l = len(
+            df_data[
+                df_data["L/P"].astype(str).str.upper().str.startswith("L")
+            ]
+        )
+        tot_p = len(
+            df_data[
+                df_data["L/P"].astype(str).str.upper().str.startswith("P")
+            ]
+        )
+        tot_siswa = len(df_data)
+
+        tot_s = sum([int(x) for x in df_data["S"]])
+        tot_i = sum([int(x) for x in df_data["I"]])
+        tot_a = sum([int(x) for x in df_data["A"]])
+        tot_absen = sum([int(x) for x in df_data["JUMLAH ABSEN"]])
+
+        html = f"""
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="utf-8"/></head>
+        <body>
+            <h2 align="center">REKAPITULASI ABSENSI BULANAN SISWA</h2>
+            <h3 align="center">SMP NEGERI 1 NANGA MAHAP - KELAS IX C</h3>
+            <p><b>Bulan:</b> {nama_bulan[bulan-1]} {tahun} | <b>HBE:</b> {hbe} Hari</p>
+            <table border="1" style="border-collapse:collapse; text-align:center;">
+                <thead>
+                    <tr style="background-color:#d9d9d9;">
+                        <th rowspan="2">NO</th>
+                        <th rowspan="2">NAMA MURID</th>
+                        <th rowspan="2">L/P</th>
+                        <th rowspan="2">NOMOR INDUK</th>
+                        <th rowspan="2">HBE</th>
+                        <th colspan="3">ABSENSI</th>
+                        <th rowspan="2">JUMLAH</th>
+                        <th rowspan="2">JUMLAH HADIR</th>
+                        <th colspan="3">PRESENTASE</th>
+                        <th rowspan="2">PRESENTASE KEHADIRAN</th>
+                    </tr>
+                    <tr style="background-color:#d9d9d9;">
+                        <th>S</th><th>I</th><th>A</th>
+                        <th>S</th><th>I</th><th>A</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        for _, r in df_data.iterrows():
+            html += f"""
+                    <tr>
+                        <td>{r['NO']}</td>
+                        <td align="left">{r['NAMA MURID']}</td>
+                        <td>{r['L/P']}</td>
+                        <td style="mso-number-format:'\@';">{r['NOMOR INDUK']}</td>
+                        <td>{r['HBE']}</td>
+                        <td>{r['S']}</td>
+                        <td>{r['I']}</td>
+                        <td>{r['A']}</td>
+                        <td>{r['JUMLAH ABSEN']}</td>
+                        <td>{r['JUMLAH HADIR']}</td>
+                        <td>{r['PRESENTASE S']}</td>
+                        <td>{r['PRESENTASE I']}</td>
+                        <td>{r['PRESENTASE A']}</td>
+                        <td><b>{r['PRESENTASE KEHADIRAN']}</b></td>
+                    </tr>
+            """
+
+        html += f"""
+                    <tr style="background-color:#ffff00; font-weight:bold;">
+                        <td colspan="4">JUMLAH</td>
+                        <td>{tot_siswa}</td>
+                        <td>{tot_s}</td>
+                        <td>{tot_i}</td>
+                        <td>{tot_a}</td>
+                        <td>{tot_absen}</td>
+                        <td colspan="5"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <br/>
+            <table>
+                <tr><td><b>Laki - Laki</b></td><td>: {tot_l}</td></tr>
+                <tr><td><b>Perempuan</b></td><td>: {tot_p}</td></tr>
+                <tr><td><b>Jumlah akhir bulan</b></td><td>: {tot_siswa}</td></tr>
+            </table>
+            <br/><br/>
+            <table width="100%">
+                <tr>
+                    <td width="60%"></td>
+                    <td align="center">
+                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas IX C<br/><br/><br/><br/>
+                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
+                        NIP. 199305202024211000
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        """
+        return html.encode("utf-8")
+
+    # Tombol Download Rekap Excel
+    excel_bytes = generate_excel_html(
+        df_final_rekap, bln_rekap, thn_rekap, hbe_input
+    )
+
+    st.download_button(
+        label="💾 UNDUH FORMAT REKAPITULASI BULANAN (EXACT PERSIS SESUAI GAMBAR EXCEL)",
+        data=excel_bytes,
+        file_name=f"Rekapitulasi_Bulanan_{nama_bulan[bln_rekap-1]}_{thn_rekap}.xls",
+        mime="application/vnd.ms-excel",
+        key="btn_download_bulanan",
+    )
 
 
 # ------------------------------------------
@@ -206,52 +396,6 @@ with tab2:
             )
         st.session_state[session_key] = pd.DataFrame(data_harian)
 
-    # Fitur Tambah Tanggal Manual
-    with st.expander("➕ Tambah Tanggal / Baris Baru Manual"):
-        col_t1, col_t2, col_t3 = st.columns(3)
-        with col_t1:
-            tgl_baru = st.number_input(
-                "Tanggal",
-                min_value=1,
-                max_value=31,
-                value=total_hari + 1 if total_hari < 31 else 31,
-            )
-        with col_t2:
-            jml_siswa_baru = st.text_input("Jumlah Siswa / Status", value="30")
-        with col_t3:
-            st.write("")
-            st.write("")
-            if st.button("Tambahkan Baris"):
-                df_curr = st.session_state[session_key]
-                new_row = pd.DataFrame(
-                    [
-                        {
-                            "TGL": tgl_baru,
-                            "Jumlah Siswa": jml_siswa_baru,
-                            "S": 0,
-                            "I": 0,
-                            "A": 0,
-                            "Jumlah": 0,
-                            "Hadir %": (
-                                "-"
-                                if jml_siswa_baru.upper() == "MINGGU"
-                                else "100%"
-                            ),
-                            "Tidak hadir %": (
-                                "-"
-                                if jml_siswa_baru.upper() == "MINGGU"
-                                else "0%"
-                            ),
-                        }
-                    ]
-                )
-                st.session_state[session_key] = pd.concat(
-                    [df_curr, new_row], ignore_index=True
-                )
-                st.success(f"Tanggal {tgl_baru} berhasil ditambahkan!")
-                st.rerun()
-
-    # Fungsi Hitung Ulang Persentase
     def hitung_ulang(df):
         df_copy = df.copy()
         jml_list, h_list, th_list = [], [], []
@@ -329,7 +473,7 @@ with tab2:
 
 
 # ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA (PARSER KOLOM & AUTO-CLEANING)
+# TAB 3: UPLOAD DATA SISWA (PARSER KOLOM & CLEANING)
 # ------------------------------------------
 with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
@@ -342,25 +486,18 @@ with tab3:
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
-                # Coba pembacaan dengan pemisah titik koma (;)
                 df_uploaded = pd.read_csv(uploaded_file, sep=";", dtype=str)
-
-                # Jika masih terbaca 1 kolom, coba pembacaan dengan koma (,)
                 if len(df_uploaded.columns) == 1:
                     uploaded_file.seek(0)
                     df_uploaded = pd.read_csv(uploaded_file, sep=",", dtype=str)
             else:
                 df_uploaded = pd.read_excel(uploaded_file, dtype=str)
 
-            # Bersihkan Nama Kolom
             df_uploaded.columns = [
                 str(col).strip() for col in df_uploaded.columns
             ]
-
-            # Dapatkan kolom pertama untuk pembersihan baris sampah (seperti ';;;')
             first_col = df_uploaded.columns[0]
 
-            # Filter baris kosong dan baris bernilai sampah
             df_uploaded = df_uploaded.dropna(how="all")
             df_uploaded = df_uploaded[
                 ~df_uploaded[first_col]
@@ -369,14 +506,12 @@ with tab3:
                 & (df_uploaded[first_col].astype(str).str.strip() != "")
             ].reset_index(drop=True)
 
-            # Simpan ke Session State
             st.session_state["df_siswa"] = df_uploaded
             st.success(f"✅ Berhasil memproses data {len(df_uploaded)} siswa!")
 
         except Exception as e:
             st.error(f"Gagal membaca file: {e}")
 
-    # Tampilkan Data Siswa Terunggah
     if "df_siswa" in st.session_state and not st.session_state[
         "df_siswa"
     ].empty:
