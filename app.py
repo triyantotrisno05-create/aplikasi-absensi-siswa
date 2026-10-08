@@ -89,14 +89,14 @@ st.sidebar.header("🏫 Data Sekolah & Kelas")
 nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
 tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
 kelas = st.sidebar.text_input("Kelas", "IX C")
-bulan_tahun = st.sidebar.text_input("Bulan / Periode", "April 2026")
+bulan_tahun = st.sidebar.text_input("Bulan / Periode", "30 April 2026")
 
 st.sidebar.divider()
 st.sidebar.header("✍️ Data Tanda Tangan")
 tempat_cetak = st.sidebar.text_input("Kota / Tempat Laporan", "Nanga Mahap")
-tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", date.today())
-wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Triyanto trisno, S.Pd")
-nip_wali = st.sidebar.text_input("NIP Wali Kelas", "199305202024211001")
+tgl_cetak = st.sidebar.text_input("Tanggal Cetak TTD", "30 April 2026")
+wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Triyanto trisno.S.Pd")
+nip_wali = st.sidebar.text_input("NIP Wali Kelas", "1993052020242110006")
 
 # UPLOAD FILE DATA SISWA
 st.sidebar.divider()
@@ -178,7 +178,6 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.subheader("📝 Edit Data Absensi Bulanan Siswa")
     
-    # Hitung nilai JUMLAH, JUMLAH HADIR, dan Persentase secara dinamis
     df_calc = st.session_state.data_absensi.copy()
     for col in ["HBE", "S", "I", "A"]:
         df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
@@ -191,7 +190,6 @@ with tab1:
     df_calc["A %"] = df_calc.apply(lambda r: round((r["A"] / r["HBE"]) * 100) if r["HBE"] > 0 else 0, axis=1)
     df_calc["PRESENTASE KEHADIRAN"] = df_calc.apply(lambda r: round((r["JUMLAH HADIR"] / r["HBE"]) * 100) if r["HBE"] > 0 else 100, axis=1)
 
-    # Tabel Data Editor Lengkap dengan Kolom JUMLAH HADIR
     edited_df = st.data_editor(
         df_calc[["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A", "JUMLAH", "JUMLAH HADIR", "PRESENTASE KEHADIRAN"]],
         disabled=["No", "JUMLAH", "JUMLAH HADIR", "PRESENTASE KEHADIRAN"],
@@ -202,7 +200,6 @@ with tab1:
     )
     
     if st.button("💾 Simpan Data Absensi", type="primary"):
-        # Ambil kembali hanya kolom input utama untuk disimpan ke CSV
         save_df = edited_df[["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]].copy()
         save_df["No"] = range(1, len(save_df) + 1)
         st.session_state.data_absensi = save_df
@@ -210,13 +207,11 @@ with tab1:
         st.success("✅ Data Absensi Bulanan berhasil disimpan!")
         st.rerun()
 
-    # FUNCTION EXPORT EXCEL PERSIS SESUAI GAMBAR CONTOH
     def generate_excel_persis_gambar(df, tempat_c, tgl_c, wali, nip):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Rekapitulasi Bulanan"
 
-        # Font & Styles
         font_bold = Font(name="Calibri", size=11, bold=True)
         font_normal = Font(name="Calibri", size=11)
         align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -226,11 +221,9 @@ with tab1:
             top=Side(style='thin'), bottom=Side(style='thin')
         )
 
-        # Fills (Warna Latar Belakang)
-        fill_green = PatternFill(start_color="66FF66", end_color="66FF66", fill_type="solid") # Hijau
-        fill_yellow = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid") # Kuning
+        fill_green = PatternFill(start_color="66FF66", end_color="66FF66", fill_type="solid")
+        fill_yellow = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
-        # 1. SETUP HEADER MULTI-BARIS (Row 1 & Row 2)
         ws.merge_cells("A1:A2"); ws["A1"] = "NO"
         ws.merge_cells("B1:B2"); ws["B1"] = "NAMA MURID"
         ws.merge_cells("C1:C2"); ws["C1"] = "L/P"
@@ -248,7 +241,6 @@ with tab1:
 
         ws.merge_cells("N1:N2"); ws["N1"] = "PRESENTASE KEHADIRAN"
 
-        # Apply Border & Style Header
         for r in range(1, 3):
             for c in range(1, 15):
                 cell = ws.cell(row=r, column=c)
@@ -256,7 +248,6 @@ with tab1:
                 cell.alignment = align_center
                 cell.border = thin_border
 
-        # 2. ISI DATA SISWA
         curr_row = 3
         count_l = 0
         count_p = 0
@@ -269,12 +260,10 @@ with tab1:
             ws.cell(row=curr_row, column=1, value=int(row.get("No", idx+1))).alignment = align_center
             ws.cell(row=curr_row, column=2, value=str(row.get("Nama Murid", ""))).alignment = align_left
             
-            # Kolom L/P (Hijau)
             c_lp = ws.cell(row=curr_row, column=3, value=lp_val)
             c_lp.alignment = align_center
             c_lp.fill = fill_green
 
-            # Kolom NOMOR INDUK (Hijau)
             c_nis = ws.cell(row=curr_row, column=4, value=str(row.get("Nomor Induk", "")))
             c_nis.alignment = align_center
             c_nis.fill = fill_green
@@ -286,7 +275,6 @@ with tab1:
             ws.cell(row=curr_row, column=9, value=int(row.get("JUMLAH", 0))).alignment = align_center
             ws.cell(row=curr_row, column=10, value=int(row.get("JUMLAH HADIR", 0))).alignment = align_center
             
-            # Presentase
             ws.cell(row=curr_row, column=11, value=f"{int(row.get('S %', 0))}%").alignment = align_center
             ws.cell(row=curr_row, column=12, value=f"{int(row.get('I %', 0))}%").alignment = align_center
             ws.cell(row=curr_row, column=13, value=f"{int(row.get('A %', 0))}%").alignment = align_center
@@ -299,7 +287,6 @@ with tab1:
 
             curr_row += 1
 
-        # 3. BARIS JUMLAH / TOTAL (WARNA KUNING)
         tot_sakit = df["S"].sum()
         tot_izin = df["I"].sum()
         tot_alpha = df["A"].sum()
@@ -335,7 +322,6 @@ with tab1:
             cell.border = thin_border
             cell.fill = fill_yellow
 
-        # 4. REKAP LAKI-LAKI & PEREMPUAN
         curr_row += 2
         ws.cell(row=curr_row, column=1, value="Laki - Laki").font = font_bold
         ws.cell(row=curr_row, column=3, value=":").font = font_bold
@@ -351,15 +337,12 @@ with tab1:
         ws.cell(row=curr_row, column=3, value=":").font = font_bold
         ws.cell(row=curr_row, column=4, value=count_l + count_p).font = font_bold
 
-        # 5. TANDA TANGAN WALI KELAS
-        tgl_str = tgl_c.strftime("%d %B %Y") if isinstance(tgl_c, date) else str(tgl_c)
-        ws.cell(row=curr_row-2, column=10, value=f"{tempat_c}, {tgl_str}").font = font_bold
-        ws.cell(row=curr_row-1, column=10, value=f"Wali Kelas {kelas}").font = font_bold
+        ws.cell(row=curr_row-2, column=10, value=f"{tempat_c}, {tgl_c}").font = font_bold
+        ws.cell(row=curr_row-1, column=10, value=f"Wali Kelas  {kelas}").font = font_bold
 
         ws.cell(row=curr_row+3, column=10, value=wali).font = Font(name="Calibri", size=11, bold=True, underline="single")
         ws.cell(row=curr_row+4, column=10, value=f"NIP. {nip}").font = font_bold
 
-        # Lebar Kolom
         ws.column_dimensions['A'].width = 6
         ws.column_dimensions['B'].width = 30
         ws.column_dimensions['C'].width = 6
@@ -377,7 +360,7 @@ with tab1:
     )
 
     st.download_button(
-        label="📥 UNDUH REKAPITULASI BULANAN (FORMAT EXACT SESUAI CONTOH)",
+        label="📥 UNDUH REKAPITULASI BULANAN (EXCEL)",
         data=excel_bulanan_bytes,
         file_name=f"Rekapitulasi_Bulanan_{kelas}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -385,11 +368,11 @@ with tab1:
     )
 
 # ------------------------------------------
-# TAB 2: PERSENTASE KEHADIRAN PER HARI
+# TAB 2: PERSENTASE KEHADIRAN PER HARI (FORMAT PERSIS GAMBAR)
 # ------------------------------------------
 with tab2:
-    st.subheader("📅 Tabel Rekapitulasi Kehadiran Siswa Per Hari")
-    st.caption("Isi nilai S, I, A atau ketik 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur.")
+    st.subheader("📅 Persentase Kehadiran Per Hari (Format Persis Gambar Upload)")
+    st.caption("Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur.")
 
     df_harian_input = st.session_state.data_harian.copy()
     
@@ -398,7 +381,7 @@ with tab2:
         num_rows="fixed",
         use_container_width=True,
         hide_index=True,
-        key="editor_harian_v2"
+        key="editor_harian_v3"
     )
 
     if st.button("💾 Simpan & Hitung Ulang Persentase", type="primary"):
@@ -441,10 +424,9 @@ with tab2:
         df_processed = pd.DataFrame(processed_rows)
         st.session_state.data_harian = df_processed
         save_data(df_processed, FILE_HARIAN)
-        st.success("✅ Perhitungan Rekap Harian Berhasil Diperbarui!")
+        st.success("✅ Perhitungan Persentase Kehadiran Harian Berhasil Diperbarui!")
         st.rerun()
 
-    # Hitung Akumulasi Total
     df_current = st.session_state.data_harian.copy()
     tot_s, tot_i, tot_a, tot_th, tot_siswa = 0, 0, 0, 0, 0
 
@@ -464,109 +446,140 @@ with tab2:
     total_pct_th = round((tot_th / tot_siswa) * 100) if tot_siswa > 0 else 0
     total_pct_h = 100 - total_pct_th if tot_siswa > 0 else 100
 
-    st.markdown("---")
-    st.markdown("### 📊 Ringkasan Total Bulanan")
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("Total Sakit (S)", tot_s)
-    c2.metric("Total Izin (I)", tot_i)
-    c3.metric("Total Alpha (A)", tot_a)
-    c4.metric("Total Tidak Hadir", tot_th)
-    c5.metric("Rata-rata Hadir %", f"{total_pct_h}%")
-    c6.metric("Rata-rata Tidak Hadir %", f"{total_pct_th}%")
-
-    def generate_excel_harian(df_data, total_s, total_i, total_a, total_th, pct_h, pct_th):
+    # EXPORT EXCEL 100% PERSIS SESUAI GAMBAR DENGAN TTD & BARIS MERAH/KUNING
+    def generate_excel_harian_persis_gambar(df_data, total_s, total_i, total_a, total_th, pct_h, pct_th, tempat_c, tgl_c, wali, nip, kelas_c):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Rekap Harian"
+        ws.title = "Presentase Kehadiran"
 
         thin_border = Border(
             left=Side(style='thin'), right=Side(style='thin'),
             top=Side(style='thin'), bottom=Side(style='thin')
         )
-        center_align = Alignment(horizontal="center", vertical="center")
-        bold_font = Font(bold=True)
-        red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        align_center = Alignment(horizontal="center", vertical="center")
+        font_bold = Font(name="Calibri", size=11, bold=True)
+        font_normal = Font(name="Calibri", size=11)
 
-        ws.merge_cells("A1:A2")
-        ws["A1"] = "TGL"
-        ws.merge_cells("B1:B2")
-        ws["B1"] = "Jumlah Siswa"
+        fill_red = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+        fill_yellow = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+        # 1. HEADER MULTI-LEVEL DENGAN BORDER KERAS
+        ws.merge_cells("A1:A2"); ws["A1"] = "TGL"
+        ws.merge_cells("B1:B2"); ws["B1"] = "Jumlah Siswa"
         
-        ws.merge_cells("C1:E1")
-        ws["C1"] = "Tidak hadir Karena"
-        ws["C2"], ws["D2"], ws["E2"] = "S", "I", "A"
+        ws.merge_cells("C1:E1"); ws["C1"] = "Tidak hadir Karena"
+        ws["C2"] = "S"; ws["D2"] = "I"; ws["E2"] = "A"
 
-        ws.merge_cells("F1:F2")
-        ws["F1"] = "Jumlah"
+        ws.merge_cells("F1:F2"); ws["F1"] = "Jumlah"
 
-        ws.merge_cells("G1:H1")
-        ws["G1"] = "Presentase"
-        ws["G2"], ws["H2"] = "Hadir %", "Tidak hadir %"
+        ws.merge_cells("G1:H1"); ws["G1"] = "Presentase"
+        ws["G2"] = "Hadir %"; ws["H2"] = "Tidak hadir %"
 
-        for row in ws.iter_rows(min_row=1, max_row=2, min_col=1, max_col=8):
-            for cell in row:
-                cell.alignment = center_align
-                cell.font = bold_font
+        for r in range(1, 3):
+            for c in range(1, 9):
+                cell = ws.cell(row=r, column=c)
+                cell.alignment = align_center
+                cell.font = font_bold
                 cell.border = thin_border
 
+        # 2. DATA PER HARI (1-31)
         curr_row = 3
         for idx, row in df_data.iterrows():
-            if str(row.get("Jumlah Siswa", "")).upper() == "MINGGU":
-                ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=8)
-                ws.cell(row=curr_row, column=1, value=str(row.get("TGL", idx + 1))).alignment = center_align
-                cell_m = ws.cell(row=curr_row, column=2, value="MINGGU")
-                cell_m.alignment = center_align
-                cell_m.font = bold_font
-                
-                for col in range(1, 9):
-                    c = ws.cell(row=curr_row, column=col)
-                    c.fill = red_fill
-                    c.border = thin_border
-            else:
-                ws.cell(row=curr_row, column=1, value=str(row.get("TGL", idx + 1))).alignment = center_align
-                ws.cell(row=curr_row, column=2, value=str(row.get("Jumlah Siswa", 30))).alignment = center_align
-                ws.cell(row=curr_row, column=3, value=str(row.get("S", 0))).alignment = center_align
-                ws.cell(row=curr_row, column=4, value=str(row.get("I", 0))).alignment = center_align
-                ws.cell(row=curr_row, column=5, value=str(row.get("A", 0))).alignment = center_align
-                ws.cell(row=curr_row, column=6, value=str(row.get("Jumlah", 0))).alignment = center_align
-                ws.cell(row=curr_row, column=7, value=str(row.get("Hadir %", "100%"))).alignment = center_align
-                ws.cell(row=curr_row, column=8, value=str(row.get("Tidak hadir %", "0%"))).alignment = center_align
+            tgl_val = str(row.get("TGL", idx + 1))
+            js_val = str(row.get("Jumlah Siswa", "")).strip().upper()
 
-                for col in range(1, 9):
-                    ws.cell(row=curr_row, column=col).border = thin_border
+            if js_val == "MINGGU" or str(row.get("S", "")).strip() == "-":
+                ws.cell(row=curr_row, column=1, value=int(tgl_val) if tgl_val.isdigit() else tgl_val).alignment = align_center
+                ws.cell(row=curr_row, column=1).font = font_bold
+                ws.cell(row=curr_row, column=1).border = thin_border
+
+                ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=8)
+                c_minggu = ws.cell(row=curr_row, column=2, value="MINGGU")
+                c_minggu.alignment = align_center
+                c_minggu.font = font_bold
+                
+                for col_idx in range(1, 9):
+                    cell = ws.cell(row=curr_row, column=col_idx)
+                    cell.fill = fill_red
+                    cell.border = thin_border
+            else:
+                ws.cell(row=curr_row, column=1, value=int(tgl_val) if tgl_val.isdigit() else tgl_val).alignment = align_center
+                ws.cell(row=curr_row, column=2, value=int(float(js_val)) if js_val.isdigit() else js_val).alignment = align_center
+                ws.cell(row=curr_row, column=3, value=int(float(row.get("S", 0)))).alignment = align_center
+                ws.cell(row=curr_row, column=4, value=int(float(row.get("I", 0)))).alignment = align_center
+                ws.cell(row=curr_row, column=5, value=int(float(row.get("A", 0)))).alignment = align_center
+                ws.cell(row=curr_row, column=6, value=int(float(row.get("Jumlah", 0)))).alignment = align_center
+                ws.cell(row=curr_row, column=7, value=str(row.get("Hadir %", "100%"))).alignment = align_center
+                ws.cell(row=curr_row, column=8, value=str(row.get("Tidak hadir %", "0%"))).alignment = align_center
+
+                for col_idx in range(1, 9):
+                    c_cell = ws.cell(row=curr_row, column=col_idx)
+                    c_cell.font = font_bold if col_idx in [1, 2, 6, 7, 8] else font_normal
+                    c_cell.border = thin_border
 
             curr_row += 1
 
+        # 3. BARIS JUMLAH / TOTAL (KUNING PERSIS GAMBAR)
         ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
-        ws.cell(row=curr_row, column=1, value="JUMLAH").alignment = center_align
-        ws.cell(row=curr_row, column=3, value=total_s).alignment = center_align
-        ws.cell(row=curr_row, column=4, value=total_i).alignment = center_align
-        ws.cell(row=curr_row, column=5, value=total_a).alignment = center_align
-        ws.cell(row=curr_row, column=6, value=total_th).alignment = center_align
+        c_tot_label = ws.cell(row=curr_row, column=1, value="JUMLAH")
+        c_tot_label.alignment = align_center
         
-        c_h = ws.cell(row=curr_row, column=7, value=f"{pct_h}%")
-        c_th = ws.cell(row=curr_row, column=8, value=f"{pct_th}%")
-        c_h.alignment = center_align
-        c_th.alignment = center_align
-        c_h.fill = yellow_fill
-        c_th.fill = yellow_fill
+        ws.cell(row=curr_row, column=3, value=total_s).alignment = align_center
+        ws.cell(row=curr_row, column=4, value=total_i).alignment = align_center
+        ws.cell(row=curr_row, column=5, value=total_a).alignment = align_center
+        ws.cell(row=curr_row, column=6, value=total_th).alignment = align_center
+        
+        c_pct_h = ws.cell(row=curr_row, column=7, value=f"{pct_h}%")
+        c_pct_th = ws.cell(row=curr_row, column=8, value=f"{pct_th}%")
+        
+        c_pct_h.alignment = align_center
+        c_pct_th.alignment = align_center
+        c_pct_h.fill = fill_yellow
+        c_pct_th.fill = fill_yellow
 
-        for col in range(1, 9):
-            cell = ws.cell(row=curr_row, column=col)
-            cell.font = bold_font
+        for col_idx in range(1, 9):
+            cell = ws.cell(row=curr_row, column=col_idx)
+            cell.font = font_bold
             cell.border = thin_border
+
+        # 4. TANDA TANGAN DI BAGIAN BAWAH KANAN (PERSIS GAMBAR)
+        curr_row += 2
+        ws.cell(row=curr_row, column=6, value=f"{tempat_c}, {tgl_c}").font = font_bold
+        curr_row += 1
+        ws.cell(row=curr_row, column=6, value=f"Wali Kelas  {kelas_c}").font = font_bold
+        
+        curr_row += 4
+        c_wali_name = ws.cell(row=curr_row, column=6, value=wali)
+        c_wali_name.font = Font(name="Calibri", size=11, bold=True, underline="single")
+        
+        curr_row += 1
+        ws.cell(row=curr_row, column=6, value=f"NIP.{nip}").font = font_bold
+
+        # Lebar Kolom Dityesuaikan
+        ws.column_dimensions['A'].width = 8
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 8
+        ws.column_dimensions['D'].width = 8
+        ws.column_dimensions['E'].width = 8
+        ws.column_dimensions['F'].width = 12
+        ws.column_dimensions['G'].width = 12
+        ws.column_dimensions['H'].width = 16
 
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
 
-    excel_bytes = generate_excel_harian(df_current, tot_s, tot_i, tot_a, tot_th, total_pct_h, total_pct_th)
+    excel_harian_bytes = generate_excel_harian_persis_gambar(
+        df_current, tot_s, tot_i, tot_a, tot_th, total_pct_h, total_pct_th,
+        tempat_cetak, tgl_cetak, wali_kelas, nip_wali, kelas
+    )
+
     st.download_button(
-        label="📥 Download Laporan Rekap Harian (Excel)",
-        data=excel_bytes,
-        file_name=f"Rekap_Kehadiran_Harian_{kelas}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        label="📥 UNDUH FORMAT PERSENTASE KEHADIRAN HARIAN (EXACT SESUAI GAMBAR)",
+        data=excel_harian_bytes,
+        file_name=f"Persentase_Kehadiran_Harian_{kelas}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type="primary"
     )
 
 # ------------------------------------------
