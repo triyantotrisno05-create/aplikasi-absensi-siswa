@@ -16,8 +16,7 @@ FILE_MUTASI = "database_mutasi_siswa.csv"
 # Inisialisasi Data Default Rekap Harian (Tanggal 1 - 31)
 def generate_default_harian():
     rows = []
-    # Contoh posisi hari minggu pada tanggal 5, 12, 19, 26 sesuai gambar
-    minggu_days = [5, 12, 19, 26]
+    minggu_days = [5, 12, 19, 26] # Contoh tanggal hari minggu
     for tgl in range(1, 32):
         if tgl in minggu_days:
             rows.append({
@@ -43,6 +42,22 @@ def generate_default_harian():
             })
     return pd.DataFrame(rows)
 
+def load_data_harian(filepath):
+    default_df = generate_default_harian()
+    if os.path.exists(filepath):
+        try:
+            df = pd.read_csv(filepath)
+            # Validasi apakah kolom sesuai dengan format baru
+            required_cols = ["TGL", "Jumlah Siswa", "S", "I", "A", "Jumlah", "Hadir %", "Tidak hadir %"]
+            if not all(col in df.columns for col in required_cols):
+                # Jika format file lama, overwrite/reset ke format baru
+                default_df.to_csv(filepath, index=False)
+                return default_df.copy()
+            return df
+        except Exception:
+            return default_df.copy()
+    return default_df.copy()
+
 def load_data(filepath, default_df):
     if os.path.exists(filepath):
         try:
@@ -67,7 +82,7 @@ if "data_absensi" not in st.session_state:
     st.session_state.data_absensi = load_data(FILE_ABSENSI, DEFAULT_ABSENSI)
 
 if "data_harian" not in st.session_state:
-    st.session_state.data_harian = load_data(FILE_HARIAN, generate_default_harian())
+    st.session_state.data_harian = load_data_harian(FILE_HARIAN)
 
 if "data_mutasi" not in st.session_state:
     DEFAULT_MUTASI = pd.DataFrame([
@@ -83,6 +98,14 @@ nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
 tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
 kelas = st.sidebar.text_input("Kelas", "IX C")
 bulan_tahun = st.sidebar.text_input("Bulan / Periode", "April 2026")
+
+# Tombol Reset Database Harian jika diperlukan
+st.sidebar.divider()
+if st.sidebar.button("🔄 Reset Format Tabel Harian", type="secondary"):
+    st.session_state.data_harian = generate_default_harian()
+    save_data(st.session_state.data_harian, FILE_HARIAN)
+    st.sidebar.success("Tabel harian berhasil di-reset!")
+    st.rerun()
 
 # ==========================================
 # 3. NAVIGASI TAB UTAMA
@@ -111,38 +134,29 @@ with tab1:
         st.success("✅ Data Absensi Bulanan berhasil disimpan!")
 
 # ------------------------------------------
-# TAB 2: PERSENTASE KEHADIRAN PER HARI (FORMAT SESUAI GAMBAR)
+# TAB 2: PERSENTASE KEHADIRAN PER HARI
 # ------------------------------------------
 with tab2:
     st.subheader("📅 Tabel Rekapitulasi Kehadiran Siswa Per Hari")
-    st.caption("Isi nilai S, I, A atau atur kolom 'Jumlah Siswa' menjadi MINGGU untuk menandai hari libur.")
+    st.caption("Isi nilai S, I, A atau ketik 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur.")
 
     df_harian_input = st.session_state.data_harian.copy()
     
-    # Editor Tabel Interaktif
     edited_harian = st.data_editor(
         df_harian_input,
         num_rows="fixed",
         use_container_width=True,
         hide_index=True,
-        key="editor_harian_gambar"
+        key="editor_harian_v2"
     )
 
     if st.button("💾 Simpan & Hitung Ulang Persentase", type="primary"):
-        # Melakukan perhitungan ulang sesuai aturan tabel Excel pada gambar
         processed_rows = []
-        tot_s = 0
-        tot_i = 0
-        tot_a = 0
-        tot_tidak_hadir = 0
-        tot_keseluruhan_siswa = 0
-        count_hari_efektif = 0
-
         for idx, row in edited_harian.iterrows():
-            tgl_val = str(row["TGL"])
-            js_val = str(row["Jumlah Siswa"]).strip().upper()
+            tgl_val = str(row.get("TGL", idx + 1))
+            js_val = str(row.get("Jumlah Siswa", "30")).strip().upper()
 
-            if js_val == "MINGGU" or row["S"] == "-" or row["I"] == "-":
+            if js_val == "MINGGU" or str(row.get("S", "")).strip() == "-":
                 processed_rows.append({
                     "TGL": tgl_val,
                     "Jumlah Siswa": "MINGGU",
@@ -156,22 +170,15 @@ with tab2:
             else:
                 try:
                     jml_siswa = int(float(js_val))
-                    s_val = int(float(row["S"]))
-                    i_val = int(float(row["I"]))
-                    a_val = int(float(row["A"]))
-                except ValueError:
+                    s_val = int(float(row.get("S", 0)))
+                    i_val = int(float(row.get("I", 0)))
+                    a_val = int(float(row.get("A", 0)))
+                except (ValueError, TypeError):
                     jml_siswa, s_val, i_val, a_val = 30, 0, 0, 0
 
                 jml_th = s_val + i_val + a_val
                 pct_th = round((jml_th / jml_siswa) * 100) if jml_siswa > 0 else 0
                 pct_h = 100 - pct_th if jml_siswa > 0 else 100
-
-                tot_s += s_val
-                tot_i += i_val
-                tot_a += a_val
-                tot_tidak_hadir += jml_th
-                tot_keseluruhan_siswa += jml_siswa
-                count_hari_efektif += 1
 
                 processed_rows.append({
                     "TGL": tgl_val,
@@ -184,37 +191,33 @@ with tab2:
                     "Tidak hadir %": f"{pct_th}%"
                 })
 
-        # Baris Total / JUMLAH Paling Bawah
-        avg_pct_th = round((tot_tidak_hadir / tot_keseluruhan_siswa) * 100) if tot_keseluruhan_siswa > 0 else 0
-        avg_pct_h = 100 - avg_pct_th if tot_keseluruhan_siswa > 0 else 100
-
         df_processed = pd.DataFrame(processed_rows)
-        
-        # Simpan ke Session State & File CSV
         st.session_state.data_harian = df_processed
         save_data(df_processed, FILE_HARIAN)
         st.success("✅ Perhitungan Rekap Harian Berhasil Diperbarui!")
         st.rerun()
 
-    # Hitung Rekapitulasi Akhir untuk Ditampilkan di Baris Bawah
+    # Hitung Akumulasi Total safe-check aman KeyError
     df_current = st.session_state.data_harian.copy()
     tot_s, tot_i, tot_a, tot_th, tot_siswa = 0, 0, 0, 0, 0
 
-    for idx, row in df_current.iterrows():
-        if str(row["Jumlah Siswa"]).upper() != "MINGGU" and row["S"] != "-":
-            try:
-                tot_s += int(float(row["S"]))
-                tot_i += int(float(row["I"]))
-                tot_a += int(float(row["A"]))
-                tot_th += int(float(row["Jumlah"]))
-                tot_siswa += int(float(row["Jumlah Siswa"]))
-            except ValueError:
-                pass
+    if "Jumlah Siswa" in df_current.columns and "S" in df_current.columns:
+        for idx, row in df_current.iterrows():
+            js_str = str(row["Jumlah Siswa"]).strip().upper()
+            if js_str != "MINGGU" and str(row["S"]).strip() != "-":
+                try:
+                    tot_s += int(float(row["S"]))
+                    tot_i += int(float(row["I"]))
+                    tot_a += int(float(row["A"]))
+                    tot_th += int(float(row["Jumlah"]))
+                    tot_siswa += int(float(row["Jumlah Siswa"]))
+                except (ValueError, TypeError):
+                    pass
 
     total_pct_th = round((tot_th / tot_siswa) * 100) if tot_siswa > 0 else 0
     total_pct_h = 100 - total_pct_th if tot_siswa > 0 else 100
 
-    # Menampilkan Ringkasan Total Paling Bawah
+    st.markdown("---")
     st.markdown("### 📊 Ringkasan Total Bulanan")
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Total Sakit (S)", tot_s)
@@ -224,13 +227,12 @@ with tab2:
     c5.metric("Rata-rata Hadir %", f"{total_pct_h}%")
     c6.metric("Rata-rata Tidak Hadir %", f"{total_pct_th}%")
 
-    # Function Export ke Excel dengan Format & Warna Persis Gambar
+    # Function Export Excel Format Sesuai Gambar
     def generate_excel_harian(df_data, total_s, total_i, total_a, total_th, pct_h, pct_th):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Rekap Harian"
 
-        # Format Border & Alignments
         thin_border = Border(
             left=Side(style='thin'), right=Side(style='thin'),
             top=Side(style='thin'), bottom=Side(style='thin')
@@ -257,19 +259,17 @@ with tab2:
         ws["G1"] = "Presentase"
         ws["G2"], ws["H2"] = "Hadir %", "Tidak hadir %"
 
-        # Apply header styling
         for row in ws.iter_rows(min_row=1, max_row=2, min_col=1, max_col=8):
             for cell in row:
                 cell.alignment = center_align
                 cell.font = bold_font
                 cell.border = thin_border
 
-        # Isi Data Baris 1-31
         curr_row = 3
         for idx, row in df_data.iterrows():
-            if str(row["Jumlah Siswa"]).upper() == "MINGGU":
+            if str(row.get("Jumlah Siswa", "")).upper() == "MINGGU":
                 ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=8)
-                ws.cell(row=curr_row, column=1, value=int(row["TGL"])).alignment = center_align
+                ws.cell(row=curr_row, column=1, value=str(row.get("TGL", idx + 1))).alignment = center_align
                 cell_m = ws.cell(row=curr_row, column=2, value="MINGGU")
                 cell_m.alignment = center_align
                 cell_m.font = bold_font
@@ -279,21 +279,21 @@ with tab2:
                     c.fill = red_fill
                     c.border = thin_border
             else:
-                ws.cell(row=curr_row, column=1, value=int(row["TGL"])).alignment = center_align
-                ws.cell(row=curr_row, column=2, value=int(row["Jumlah Siswa"])).alignment = center_align
-                ws.cell(row=curr_row, column=3, value=int(row["S"])).alignment = center_align
-                ws.cell(row=curr_row, column=4, value=int(row["I"])).alignment = center_align
-                ws.cell(row=curr_row, column=5, value=int(row["A"])).alignment = center_align
-                ws.cell(row=curr_row, column=6, value=int(row["Jumlah"])).alignment = center_align
-                ws.cell(row=curr_row, column=7, value=str(row["Hadir %"])).alignment = center_align
-                ws.cell(row=curr_row, column=8, value=str(row["Tidak hadir %"])).alignment = center_align
+                ws.cell(row=curr_row, column=1, value=str(row.get("TGL", idx + 1))).alignment = center_align
+                ws.cell(row=curr_row, column=2, value=str(row.get("Jumlah Siswa", 30))).alignment = center_align
+                ws.cell(row=curr_row, column=3, value=str(row.get("S", 0))).alignment = center_align
+                ws.cell(row=curr_row, column=4, value=str(row.get("I", 0))).alignment = center_align
+                ws.cell(row=curr_row, column=5, value=str(row.get("A", 0))).alignment = center_align
+                ws.cell(row=curr_row, column=6, value=str(row.get("Jumlah", 0))).alignment = center_align
+                ws.cell(row=curr_row, column=7, value=str(row.get("Hadir %", "100%"))).alignment = center_align
+                ws.cell(row=curr_row, column=8, value=str(row.get("Tidak hadir %", "0%"))).alignment = center_align
 
                 for col in range(1, 9):
                     ws.cell(row=curr_row, column=col).border = thin_border
 
             curr_row += 1
 
-        # Baris JUMLAH Paling Bawah
+        # Baris JUMLAH
         ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
         ws.cell(row=curr_row, column=1, value="JUMLAH").alignment = center_align
         ws.cell(row=curr_row, column=3, value=total_s).alignment = center_align
@@ -317,10 +317,9 @@ with tab2:
         wb.save(buffer)
         return buffer.getvalue()
 
-    # Tombol Download Excel Format Gambar
     excel_bytes = generate_excel_harian(df_current, tot_s, tot_i, tot_a, tot_th, total_pct_h, total_pct_th)
     st.download_button(
-        label="📥 Download Laporan Rekap Harian (Format Excel Seperti Gambar)",
+        label="📥 Download Laporan Rekap Harian (Excel Sesuai Format Gambar)",
         data=excel_bytes,
         file_name=f"Rekap_Kehadiran_Harian_{kelas}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
