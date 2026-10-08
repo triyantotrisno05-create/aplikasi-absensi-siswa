@@ -4,7 +4,6 @@ import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.drawing.image import Image as OpenpyxlImage
 from datetime import datetime
 from PIL import Image
 
@@ -39,7 +38,7 @@ st.markdown(f"<h4 style='text-align: center; margin-top: 0px;'>TAHUN PELAJARAN {
 
 st.markdown(f"**KELAS : {kelas.upper()}**")
 
-# Data Default dari Gambar Sample
+# Data Default
 data_sample = [
     {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
     {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
@@ -86,7 +85,7 @@ df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"])
 df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"])
 df_calc["PRESENTASE KEHADIRAN %"] = (df_calc["JUMLAH HADIR"] / df_calc["HBE"])
 
-# Tampilan Web Sesuai Format Tabel Foto
+# Tampilan Web Sesuai Format (Tanpa Kolom JUMLAH HADIR)
 df_view = pd.DataFrame()
 df_view["NO"] = df_calc["No"]
 df_view["NAMA MURID"] = df_calc["Nama Murid"]
@@ -97,7 +96,6 @@ df_view["ABSENSI (S)"] = df_calc["S"]
 df_view["ABSENSI (I)"] = df_calc["I"]
 df_view["ABSENSI (A)"] = df_calc["A"]
 df_view["JUMLAH"] = df_calc["JUMLAH"]
-df_view["JUMLAH HADIR"] = df_calc["JUMLAH HADIR"]
 df_view["PRESENTASE (S)"] = (df_calc["PRESENTASE S"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (I)"] = (df_calc["PRESENTASE I"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (A)"] = (df_calc["PRESENTASE A"] * 100).round(0).astype(int).astype(str) + "%"
@@ -106,8 +104,8 @@ df_view["PRESENTASE KEHADIRAN %"] = (df_calc["PRESENTASE KEHADIRAN %"] * 100).ro
 st.markdown("### 📊 Hasil Rekapitulasi Absensi Siswa")
 st.dataframe(df_view, use_container_width=True)
 
-# Function Generate Excel Sesuai Format Foto Laporan
-def generate_excel_foto_format():
+# Function Generate Excel (Tanpa Kolom JUMLAH HADIR)
+def generate_excel_tanpa_jumlah_hadir():
     output = io.BytesIO()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -129,21 +127,21 @@ def generate_excel_foto_format():
     )
 
     # Title Block
-    ws.merge_cells("A1:N1")
+    ws.merge_cells("A1:M1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A2:N2")
+    ws.merge_cells("A2:M2")
     ws.cell(row=2, column=1, value=nama_sekolah.upper()).font = font_title
     ws.cell(row=2, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A3:N3")
+    ws.merge_cells("A3:M3")
     ws.cell(row=3, column=1, value=f"TAHUN PELAJARAN {tahun_pelajaran}").font = font_subtitle
     ws.cell(row=3, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
     ws.cell(row=5, column=1, value=f"KELAS   : {kelas.upper()}").font = font_bold
 
-    # Header Row 7 & 8 (Multi-header bertingkat)
+    # Header Row 7 & 8 (Multi-header bertingkat tanpa JUMLAH HADIR)
     headers_r7 = [
         ("NO", "A7", "A8"),
         ("NAMA MURID", "B7", "B8"),
@@ -152,9 +150,8 @@ def generate_excel_foto_format():
         ("HBE", "E7", "E8"),
         ("ABSENSI", "F7", "H7"),
         ("JUMLAH", "I7", "I8"),
-        ("JUMLAH HADIR", "J7", "J8"),
-        ("PRESENTASE", "K7", "M7"),
-        ("PRESENTASE KEHADIRAN %", "N7", "N8")
+        ("PRESENTASE", "J7", "L7"),
+        ("PRESENTASE KEHADIRAN %", "M7", "M8")
     ]
 
     for title, start_col, end_col in headers_r7:
@@ -170,11 +167,11 @@ def generate_excel_foto_format():
     ws.cell(row=8, column=7, value="I").font = font_header
     ws.cell(row=8, column=8, value="A").font = font_header
 
-    ws.cell(row=8, column=11, value="S").font = font_header
-    ws.cell(row=8, column=12, value="I").font = font_header
-    ws.cell(row=8, column=13, value="A").font = font_header
+    ws.cell(row=8, column=10, value="S").font = font_header
+    ws.cell(row=8, column=11, value="I").font = font_header
+    ws.cell(row=8, column=12, value="A").font = font_header
 
-    for c in range(1, 15):
+    for c in range(1, 14):
         cell_r7 = ws.cell(row=7, column=c)
         cell_r8 = ws.cell(row=8, column=c)
         cell_r7.border = thin_border
@@ -198,18 +195,17 @@ def generate_excel_foto_format():
         ws.cell(row=r, column=8, value=row.get("A", 0))
         
         # Formula Excel Otomatis
-        ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})")
-        ws.cell(row=r, column=10, value=f"=E{r}-I{r}")
+        ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})") # JUMLAH ABSENSI
         
-        ws.cell(row=r, column=11, value=f"=F{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=12, value=f"=G{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=13, value=f"=H{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=14, value=f"=J{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=10, value=f"=F{r}/E{r}").number_format = '0%' # % Sakit
+        ws.cell(row=r, column=11, value=f"=G{r}/E{r}").number_format = '0%' # % Izin
+        ws.cell(row=r, column=12, value=f"=H{r}/E{r}").number_format = '0%' # % Alpa
+        ws.cell(row=r, column=13, value=f"=(E{r}-I{r})/E{r}").number_format = '0%' # PRESENTASE KEHADIRAN %
 
-        for c in range(1, 15):
+        for c in range(1, 14):
             cell = ws.cell(row=r, column=c)
             cell.border = thin_border
-            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] else font_data
+            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13] else font_data
             
             if c in [2, 4]:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -241,8 +237,8 @@ def generate_excel_foto_format():
     return output.getvalue()
 
 st.download_button(
-    label="📥 Download File Excel Rekap (Persis Format Foto & Siap Cetak)",
-    data=generate_excel_foto_format(),
+    label="📥 Download File Excel Rekap (Siap Cetak)",
+    data=generate_excel_tanpa_jumlah_hadir(),
     file_name=f"Rekap_Absensi_Siswa_{kelas}_{tahun_pelajaran.replace('/', '-')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
