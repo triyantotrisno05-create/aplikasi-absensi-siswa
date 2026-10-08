@@ -25,18 +25,46 @@ tab1, tab2, tab3 = st.tabs(["📊 1. Rekapitulasi Absensi Bulanan", "📅 2. Keh
 # ==========================================
 with tab1:
     st.subheader("📊 Rekapitulasi Absensi Bulanan")
-    st.write("Masukkan jumlah Sakit (S), Izin (I), dan Alpa (A) untuk setiap siswa.")
+    
+    # --- FITUR UPLOAD FILE ---
+    st.markdown("### 📤 Upload Data Siswa dari Excel / CSV")
+    uploaded_file = st.file_uploader(
+        "Pilih file Excel (.xlsx) atau CSV (.csv) berisi daftar siswa", 
+        type=["xlsx", "csv"],
+        key="uploader_bulanan"
+    )
 
-    # Data awal contoh jika belum ada
+    # Inisialisasi Data Default jika belum ada
     if "data_bulanan" not in st.session_state:
         st.session_state.data_bulanan = pd.DataFrame({
             "No": [1, 2, 3],
             "NIS/NISN": ["1001", "1002", "1003"],
             "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
-            "Sakit (S)": [1, 0, 2],
-            "Izin (I)": [0, 1, 0],
-            "Alpa (A)": [0, 0, 1]
+            "Sakit (S)": [0, 0, 0],
+            "Izin (I)": [0, 0, 0],
+            "Alpa (A)": [0, 0, 0]
         })
+
+    # Logika jika user mengunggah file
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df_upload = pd.read_csv(uploaded_file)
+            else:
+                df_upload = pd.read_excel(uploaded_file)
+            
+            # Pastikan kolom wajib ada
+            cols_required = ["No", "NIS/NISN", "Nama Siswa"]
+            for col in ["Sakit (S)", "Izin (I)", "Alpa (A)"]:
+                if col not in df_upload.columns:
+                    df_upload[col] = 0
+            
+            st.session_state.data_bulanan = df_upload
+            st.success("✅ Data siswa berhasil diunggah!")
+        except Exception as e:
+            st.error(f"Gagal membaca file: {e}")
+
+    st.write("Atur jumlah Sakit (S), Izin (I), dan Alpa (A) pada tabel di bawah ini:")
 
     # Form/Editor Input Data
     edited_df = st.data_editor(
@@ -48,38 +76,34 @@ with tab1:
 
     # Kalkulasi Otomatis
     df_calc = edited_df.copy()
-    # Pastikan numerik
     for col in ["Sakit (S)", "Izin (I)", "Alpa (A)"]:
         df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
 
-    df_calc["Total Ketidakhadiran"] = df_calc["Sakit (S)"] + df_calc["Izin (I)"] + df_calc["A"] if "A" in df_calc else df_calc["Sakit (S)"] + df_calc["Izin (I)"] + df_calc["Alpa (A)"]
+    df_calc["Total Ketidakhadiran"] = df_calc["Sakit (S)"] + df_calc["Izin (I)"] + df_calc["Alpa (A)"]
     
-    # Asumsi Hari Efektif dalam 1 Bulan = 24 Hari
+    # Asumsi Hari Efektif dalam 1 Bulan
     hari_efektif = st.number_input("Jumlah Hari Efektif Belajar (Bulan Ini)", min_value=1, value=24)
     df_calc["% Kehadiran"] = ((hari_efektif - df_calc["Total Ketidakhadiran"]) / hari_efektif * 100).round(1)
     df_calc["% Kehadiran"] = df_calc["% Kehadiran"].apply(lambda x: f"{max(0, x)}%")
 
-    st.markdown("### 📈 Rangkuman Total & Persentase")
+    st.markdown("### 📈 Tabel Hasil Rekapitulasi")
     st.dataframe(df_calc, use_container_width=True)
 
-    # Fungsi Export Excel Terformat
+    # Export Excel Terformat
     def generate_excel_rekap():
         output = io.BytesIO()
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Rekap Absensi Bulanan"
 
-        # Judul Laporan
         ws.append([nama_sekolah.upper()])
         ws.append([f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}"])
         ws.append([f"PERIODE: {bulan_tahun.upper()}"])
         ws.append([])
 
-        # Header Tabel
         headers = ["No", "NIS/NISN", "Nama Siswa", "Sakit (S)", "Izin (I)", "Alpa (A)", "Total Absen", "% Kehadiran"]
         ws.append(headers)
 
-        # Isi Data
         for _, row in df_calc.iterrows():
             ws.append([
                 row.get("No", ""),
@@ -92,7 +116,6 @@ with tab1:
                 row.get("% Kehadiran", "100%")
             ])
 
-        # Baris Jumlah Total
         last_row = ws.max_row
         start_data_row = 5
         ws.append([
@@ -104,7 +127,7 @@ with tab1:
             ""
         ])
 
-        # Styling Excel
+        # Styling
         header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
         header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
         title_font = Font(name="Arial", size=12, bold=True)
@@ -115,19 +138,15 @@ with tab1:
             bottom=Side(style='thin', color='D9D9D9')
         )
 
-        for cell in ws[1]:
-            cell.font = title_font
-        for cell in ws[2]:
-            cell.font = title_font
+        for cell in ws[1]: cell.font = title_font
+        for cell in ws[2]: cell.font = title_font
 
-        # Format Header
         for col_num in range(1, len(headers) + 1):
             cell = ws.cell(row=5, column=col_num)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # Format Isi & Border
         for r in range(5, ws.max_row + 1):
             for c in range(1, len(headers) + 1):
                 cell = ws.cell(row=r, column=c)
@@ -135,7 +154,6 @@ with tab1:
                 if c in [1, 2, 4, 5, 6, 7, 8]:
                     cell.alignment = Alignment(horizontal="center")
 
-        # Format Baris Total
         total_row = ws.max_row
         ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
         for c in range(1, len(headers) + 1):
@@ -143,7 +161,6 @@ with tab1:
             cell.font = Font(name="Arial", size=11, bold=True)
             cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
-        # Tanda Tangan
         ws.append([])
         ws.append([])
         ws.append(["", "", "", "", "", "", "Wali Kelas,"])
@@ -151,7 +168,6 @@ with tab1:
         ws.append([])
         ws.append(["", "", "", "", "", "", f"({wali_kelas})"])
 
-        # Auto Adjust Column Width
         for col in ws.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)
@@ -196,7 +212,6 @@ with tab2:
         key="editor_harian"
     )
 
-    # Ringkasan Harian
     summary_harian = edited_harian["Status Kehadiran"].value_counts().reset_index()
     summary_harian.columns = ["Status", "Jumlah Siswa"]
     
@@ -215,7 +230,6 @@ with tab2:
 # ==========================================
 with tab3:
     st.subheader("🔄 Catatan Mutasi Siswa (Masuk / Keluar)")
-    st.caption("Pencatatan riwayat perubahan data siswa di kelas.")
 
     if "data_mutasi" not in st.session_state:
         st.session_state.data_mutasi = pd.DataFrame({
