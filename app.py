@@ -4,136 +4,149 @@ import io
 import pandas as pd
 import streamlit as st
 
-# Config Halaman
+# ==========================================
+# 1. KONFIGURASI HALAMAN
+# ==========================================
 st.set_page_config(
     page_title="SMP NEGERI 1 NANGA MAHAP - Rekapitulasi Absensi",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Custom Styling (Menyamakan tampilan dengan screenshot)
+# Custom CSS Styling agar tampilan persis seperti aplikasi Anda
 st.markdown(
     """
     <style>
-    .main-title {
+    .title-header {
         text-align: center;
         font-weight: 800;
-        font-size: 2.2rem;
-        color: #1a1a1a;
-        margin-bottom: 5px;
+        font-size: 2rem;
+        color: #212529;
+        margin-bottom: 0px;
     }
-    .sub-title {
+    .subtitle-header {
         text-align: center;
         font-weight: 700;
-        font-size: 1.25rem;
-        color: #333333;
+        font-size: 1.2rem;
+        color: #495057;
         margin-bottom: 25px;
     }
-    
-    /* Style Tombol Merah Sesuai Gambar */
-    div.stButton > button:first-child {
+    div.stButton > button:first-child, div.stDownloadButton > button:first-child {
         background-color: #ff4d4f !important;
         color: white !important;
         font-weight: bold !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         border: none !important;
-        padding: 12px 20px !important;
+        padding: 10px 20px !important;
         font-size: 14px !important;
         width: 100%;
+        margin-top: 5px;
     }
-    div.stButton > button:first-child:hover {
-        background-color: #e03e3f !important;
+    div.stButton > button:first-child:hover, div.stDownloadButton > button:first-child:hover {
+        background-color: #ff2a2d !important;
         color: white !important;
-    }
-
-    div.stDownloadButton > button:first-child {
-        background-color: #ff4d4f !important;
-        color: white !important;
-        font-weight: bold !important;
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 12px 20px !important;
-        font-size: 14px !important;
-        width: 100%;
-    }
-    div.stDownloadButton > button:first-child:hover {
-        background-color: #e03e3f !important;
-        color: white !important;
-    }
-
-    /* Style Tab */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 20px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        font-weight: 600;
-        font-size: 15px;
     }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Judul Sekolah
+# ==========================================
+# 2. HEADER UTAMA SEKOLAH
+# ==========================================
 st.markdown(
-    "<div class='main-title'>SMP NEGERI 1 NANGA MAHAP</div>",
+    "<h1 class='title-header'>SMP NEGERI 1 NANGA MAHAP</h1>",
     unsafe_allow_html=True,
 )
 st.markdown(
-    "<div class='sub-title'>REKAPITULASI ABSENSI & MUTASI SISWA - IX C (2025/2026)</div>",
+    "<h3 class='subtitle-header'>REKAPITULASI ABSENSI & MUTASI SISWA - IX C (2025/2026)</h3>",
     unsafe_allow_html=True,
 )
 
-# Tab Menu Aplikasi
+# ==========================================
+# 3. TAB NAVIGASI UTAMA (3 FITUR)
+# ==========================================
 tab1, tab2, tab3 = st.tabs(
     ["📊 Rekap Absensi Bulanan", "📅 Persentase Kehadiran Per Hari", "🔄 Mutasi Siswa"]
 )
 
+nama_bulan = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+]
+
+# ------------------------------------------
+# TAB 1: REKAP ABSENSI BULANAN
+# ------------------------------------------
+with tab1:
+    st.subheader("📊 Rekap Absensi Bulanan")
+    st.caption("Ringkasan akumulasi absensi siswa per bulan.")
+
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        bln_rekap = st.selectbox(
+            "Pilih Bulan Rekap", options=list(range(1, 13)), format_func=lambda x: nama_bulan[x - 1], key="bln_tab1"
+        )
+    with col_b2:
+        thn_rekap = st.number_input("Pilih Tahun Rekap", value=datetime.now().year, key="thn_tab1")
+
+    # Data Dummy Rekap Bulanan
+    data_bulanan = {
+        "No": [1, 2, 3],
+        "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
+        "Sakit (S)": [1, 0, 2],
+        "Izin (I)": [0, 1, 0],
+        "Alpha (A)": [0, 0, 1],
+        "Total Absen": [1, 1, 3],
+        "Persentase Kehadiran": ["96%", "96%", "88%"],
+    }
+    st.dataframe(pd.DataFrame(data_bulanan), use_container_width=True, hide_index=True)
+
+
+# ------------------------------------------
+# TAB 2: PERSENTASE KEHADIRAN PER HARI
+# ------------------------------------------
 with tab2:
     st.subheader("📅 Persentase Kehadiran Per Hari (Format Persis Gambar Upload)")
-    st.caption(
-        "Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur."
-    )
+    st.caption("Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur.")
 
-    # Filter Bulan dan Tahun
-    col_filter1, col_filter2, col_filter3 = st.columns([2, 2, 3])
-
-    nama_bulan = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ]
-
-    with col_filter1:
+    col1, col2, _ = st.columns([2, 2, 4])
+    with col1:
         bulan_selected = st.selectbox(
             "Pilih Bulan",
             options=list(range(1, 13)),
             format_func=lambda x: f"{nama_bulan[x-1]} (Bulan {x})",
             index=datetime.now().month - 1,
+            key="bln_tab2",
         )
-
-    with col_filter2:
+    with col2:
         tahun_selected = st.number_input(
-            "Pilih Tahun",
-            min_value=2020,
-            max_value=2035,
-            value=datetime.now().year,
+            "Pilih Tahun", min_value=2020, max_value=2035, value=datetime.now().year, key="thn_tab2"
         )
 
-    # Menghitung Jumlah Hari Otomatis Dalam Bulan (28, 29, 30, atau 31)
+    # Hitung jumlah hari dalam bulan (Otomatis 28, 29, 30, atau 31)
     _, total_hari = calendar.monthrange(tahun_selected, bulan_selected)
 
-    # Inisialisasi Data Session State
-    session_key = f"df_absensi_{bulan_selected}_{tahun_selected}"
+    # Key Session State
+    session_key = f"df_harian_{bulan_selected}_{tahun_selected}"
 
     if session_key not in st.session_state:
-        data_list = []
+        data_harian = []
         for tgl in range(1, total_hari + 1):
-            is_minggu = (
-                calendar.weekday(tahun_selected, bulan_selected, tgl) == 6
-            )
-            data_list.append(
+            is_minggu = calendar.weekday(tahun_selected, bulan_selected, tgl) == 6
+            data_harian.append(
                 {
-                    "TGL": int(tgl),
+                    "TGL": tgl,
                     "Jumlah Siswa": "MINGGU" if is_minggu else "30",
                     "S": 0,
                     "I": 0,
@@ -143,146 +156,119 @@ with tab2:
                     "Tidak hadir %": "-" if is_minggu else "0%",
                 }
             )
-        st.session_state[session_key] = pd.DataFrame(data_list)
+        st.session_state[session_key] = pd.DataFrame(data_harian)
 
-    # Fungsi Rekalkulasi Otomatis Persentase Kehadiran
-    def kalkulasi_persentase(df):
-        df_copy = df.copy()
-        jumlah_list = []
-        hadir_pct_list = []
-        tidak_hadir_pct_list = []
-
-        for idx, row in df_copy.iterrows():
-            jml_siswa_str = str(row["Jumlah Siswa"]).strip()
-            
-            # Hitung total S, I, A
-            try:
-                s = int(row["S"])
-            except:
-                s = 0
-            try:
-                i = int(row["I"])
-            except:
-                i = 0
-            try:
-                a = int(row["A"])
-            except:
-                a = 0
-
-            tot_absen = s + i + a
-            jumlah_list.append(tot_absen)
-
-            # Jika 'MINGGU' atau Hari Libur
-            if (
-                jml_siswa_str.upper() == "MINGGU"
-                or not jml_siswa_str.isdigit()
-                or int(jml_siswa_str) == 0
-            ):
-                hadir_pct_list.append("-")
-                tidak_hadir_pct_list.append("-")
-            else:
-                tot_siswa = int(jml_siswa_str)
-                h_pct = max(
-                    0.0, round(((tot_siswa - tot_absen) / tot_siswa) * 100, 1)
-                )
-                th_pct = min(100.0, round((tot_absen / tot_siswa) * 100, 1))
-
-                hadir_pct_list.append(
-                    f"{int(h_pct)}%" if h_pct.is_integer() else f"{h_pct}%"
-                )
-                tidak_hadir_pct_list.append(
-                    f"{int(th_pct)}%" if th_pct.is_integer() else f"{th_pct}%"
-                )
-
-        df_copy["Jumlah"] = jumlah_list
-        df_copy["Hadir %"] = hadir_pct_list
-        df_copy["Tidak hadir %"] = tidak_hadir_pct_list
-        return df_copy
-
-    st.write("---")
-
-    # Fitur Tambah Baris/Tanggal Baru
-    with st.expander("➕ **Tambah Tanggal / Baris Baru Manual**", expanded=False):
-        col_add1, col_add2, col_add3 = st.columns([2, 3, 2])
-        with col_add1:
-            next_tgl = len(st.session_state[session_key]) + 1
-            tgl_baru = st.number_input("Tanggal (TGL)", min_value=1, value=next_tgl)
-        with col_add2:
-            jml_siswa_baru = st.text_input("Jumlah Siswa / Tulis 'MINGGU'", value="30")
-        with col_add3:
-            st.write("<br>", unsafe_allow_html=True)
-            if st.button("➕ Tambah Baris"):
-                new_row = pd.DataFrame([{
-                    "TGL": int(tgl_baru),
-                    "Jumlah Siswa": jml_siswa_baru,
-                    "S": 0,
-                    "I": 0,
-                    "A": 0,
-                    "Jumlah": 0,
-                    "Hadir %": "100%",
-                    "Tidak hadir %": "0%"
-                }])
-                st.session_state[session_key] = pd.concat([st.session_state[session_key], new_row], ignore_index=True)
-                st.session_state[session_key] = kalkulasi_persentase(st.session_state[session_key])
+    # Fitur Tambah Tanggal Manual jika dibutuhkan
+    with st.expander("➕ Tambah Tanggal / Baris Baru Manual"):
+        col_t1, col_t2, col_t3 = st.columns(3)
+        with col_t1:
+            tgl_baru = st.number_input("Tanggal", min_value=1, max_value=31, value=total_hari + 1 if total_hari < 31 else 31)
+        with col_t2:
+            jml_siswa_baru = st.text_input("Jumlah Siswa / Status", value="30")
+        with col_t3:
+            st.write("")
+            st.write("")
+            if st.button("Tambahkan Baris"):
+                df_curr = st.session_state[session_key]
+                new_row = pd.DataFrame([
+                    {
+                        "TGL": tgl_baru,
+                        "Jumlah Siswa": jml_siswa_baru,
+                        "S": 0,
+                        "I": 0,
+                        "A": 0,
+                        "Jumlah": 0,
+                        "Hadir %": "-" if jml_siswa_baru.upper() == "MINGGU" else "100%",
+                        "Tidak hadir %": "-" if jml_siswa_baru.upper() == "MINGGU" else "0%",
+                    }
+                ])
+                st.session_state[session_key] = pd.concat([df_curr, new_row], ignore_index=True)
                 st.success(f"Tanggal {tgl_baru} berhasil ditambahkan!")
                 st.rerun()
 
-    # Tabel Interaktif (Bisa Didefinisikan & Diedit Langsung)
-    df_tampil = st.session_state[session_key]
+    # Fungsi Kalkulasi Ulang
+    def hitung_ulang(df):
+        df_copy = df.copy()
+        jml_list, h_list, th_list = [], [], []
 
+        for _, row in df_copy.iterrows():
+            jml_str = str(row["Jumlah Siswa"]).strip()
+            s = int(row["S"]) if str(row["S"]).isdigit() else 0
+            i = int(row["I"]) if str(row["I"]).isdigit() else 0
+            a = int(row["A"]) if str(row["A"]).isdigit() else 0
+
+            tot_absen = s + i + a
+            jml_list.append(tot_absen)
+
+            if jml_str.upper() == "MINGGU" or not jml_str.isdigit() or int(jml_str) == 0:
+                h_list.append("-")
+                th_list.append("-")
+            else:
+                tot_siswa = int(jml_str)
+                hp = max(0.0, round(((tot_siswa - tot_absen) / tot_siswa) * 100, 1))
+                thp = min(100.0, round((tot_absen / tot_siswa) * 100, 1))
+                h_list.append(f"{int(hp)}%" if hp.is_integer() else f"{hp}%")
+                th_list.append(f"{int(thp)}%" if thp.is_integer() else f"{thp}%")
+
+        df_copy["Jumlah"] = jml_list
+        df_copy["Hadir %"] = h_list
+        df_copy["Tidak hadir %"] = th_list
+        return df_copy
+
+    # Tabel Interaktif
     edited_df = st.data_editor(
-        df_tampil,
+        st.session_state[session_key],
         key=f"editor_{session_key}",
-        num_rows="dynamic", # Memungkinkan edit, hapus, dan tambah baris langsung dari tabel
+        num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "TGL": st.column_config.NumberColumn(
-                "↑ TGL", required=True, width="small"
-            ),
-            "Jumlah Siswa": st.column_config.TextColumn(
-                "Jumlah Siswa", required=True, width="medium"
-            ),
-            "S": st.column_config.NumberColumn("S", min_value=0, width="small", default=0),
-            "I": st.column_config.NumberColumn("I", min_value=0, width="small", default=0),
-            "A": st.column_config.NumberColumn("A", min_value=0, width="small", default=0),
+            "TGL": st.column_config.NumberColumn("↑ TGL"),
+            "Jumlah Siswa": st.column_config.TextColumn("Jumlah Siswa"),
+            "S": st.column_config.NumberColumn("S", min_value=0),
+            "I": st.column_config.NumberColumn("I", min_value=0),
+            "A": st.column_config.NumberColumn("A", min_value=0),
             "Jumlah": st.column_config.NumberColumn("Jumlah", disabled=True),
             "Hadir %": st.column_config.TextColumn("Hadir %", disabled=True),
-            "Tidak hadir %": st.column_config.TextColumn(
-                "Tidak hadir %", disabled=True
-            ),
+            "Tidak hadir %": st.column_config.TextColumn("Tidak hadir %", disabled=True),
         },
         hide_index=True,
     )
 
-    # Tombol Simpan & Unduh (Persis Tombol Merah Aplikasi Anda)
-    col_btn1, col_btn2 = st.columns([1, 1.5])
-
-    with col_btn1:
-        if st.button("💾 Simpan & Hitung Ulang Persentase"):
-            df_updated = kalkulasi_persentase(edited_df)
-            st.session_state[session_key] = df_updated
-            st.success("✅ Data absensi berhasil disimpan dan dihitung ulang!")
+    # Tombol Aksi
+    btn_col1, btn_col2 = st.columns([1, 1.5])
+    with btn_col1:
+        if st.button("💾 Simpan & Hitung Ulang Persentase", key="btn_save"):
+            st.session_state[session_key] = hitung_ulang(edited_df)
+            st.success("✅ Data berhasil dihitung ulang dan disimpan!")
             st.rerun()
 
-    with col_btn2:
-        df_for_download = kalkulasi_persentase(edited_df)
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df_for_download.to_excel(
-                writer,
-                sheet_name=f"Rekap_{nama_bulan[bulan_selected-1]}",
-                index=False,
-            )
+    with btn_col2:
+        df_export = hitung_ulang(edited_df)
+        
+        # Generator CSV / Excel aman tanpa error xlsxwriter
+        csv_data = df_export.to_csv(index=False).encode('utf-8')
 
         st.download_button(
             label="💾 UNDUH FORMAT PERSENTASE KEHADIRAN HARIAN (EXACT SESUAI GAMBAR)",
-            data=buffer.getvalue(),
-            file_name=f"Rekap_Kehadiran_Harian_{nama_bulan[bulan_selected-1]}_{tahun_selected}.xlsx",
-            mime="application/vnd.ms-excel",
+            data=csv_data,
+            file_name=f"Rekap_Kehadiran_Harian_{nama_bulan[bulan_selected-1]}_{tahun_selected}.csv",
+            mime="text/csv",
+            key="btn_download"
         )
 
-with tab1:
-    st.info("Fitur Rekap Absensi Bulanan")
 
+# ------------------------------------------
+# TAB 3: MUTASI SISWA
+# ------------------------------------------
 with tab3:
-    st.info("Fitur Mutasi Siswa")
+    st.subheader("🔄 Mutasi Siswa")
+    st.caption("Pencatatan data siswa masuk / keluar.")
+
+    data_mutasi = {
+        "No": [1],
+        "Tanggal": ["2025-09-10"],
+        "Nama Siswa": ["Rian Hidayat"],
+        "Jenis Mutasi": ["Masuk"],
+        "Keterangan": ["Pindahan dari SMPN 2"],
+    }
+    st.dataframe(pd.DataFrame(data_mutasi), use_container_width=True, hide_index=True)
