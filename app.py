@@ -336,35 +336,46 @@ with tab2:
 # ------------------------------------------
 # TAB 3: UPLOAD DATA SISWA
 # ------------------------------------------
-with tab4 if False else tab3:
+# ------------------------------------------
+# TAB 3: UPLOAD DATA SISWA (FIX SEPARATOR & CLEANING)
+# ------------------------------------------
+with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
     st.caption("Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda.")
 
-    uploaded_file = st.file_uploader(
-        "Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"]
-    )
+    uploaded_file = st.file_uploader("Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"])
 
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
-                df_uploaded = pd.read_csv(uploaded_file)
+                # Mencoba baca dengan pemisah titik koma (;) dulu, jika gagal coba pemisah koma (,)
+                try:
+                    df_uploaded = pd.read_csv(uploaded_file, sep=";")
+                    if len(df_uploaded.columns) == 1:
+                        uploaded_file.seek(0)
+                        df_uploaded = pd.read_csv(uploaded_file, sep=",")
+                except Exception:
+                    uploaded_file.seek(0)
+                    df_uploaded = pd.read_csv(uploaded_file, sep=",")
             else:
                 df_uploaded = pd.read_excel(uploaded_file)
 
+            # Membersihkan baris yang kosong atau berisi tanda titik koma saja
+            df_uploaded = df_uploaded.dropna(how="all")
+            
+            # Hapus baris jika nama kolom/isinya hanya berisi simbol titik koma
+            df_uploaded = df_uploaded[~df_uploaded.iloc[:, 0].astype(str).str.contains(r'^\;+$', na=False)]
+
             st.session_state["df_siswa"] = df_uploaded
-            st.success(
-                f"✅ Berhasil mengunggah data {len(df_uploaded)} siswa!"
-            )
-            st.dataframe(df_uploaded, use_container_width=True)
+            st.success(f"✅ Berhasil mengunggah data {len(df_uploaded)} siswa!")
+            st.dataframe(df_uploaded, use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"Gagal membaca file: {e}")
 
     if "df_siswa" in st.session_state:
         st.write("---")
         st.write("### Data Siswa Saat Ini:")
-        st.dataframe(st.session_state["df_siswa"], use_container_width=True)
-
-
+        st.dataframe(st.session_state["df_siswa"], use_container_width=True, hide_index=True)
 # ------------------------------------------
 # TAB 4: MUTASI SISWA
 # ------------------------------------------
