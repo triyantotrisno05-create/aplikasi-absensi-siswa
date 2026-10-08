@@ -76,7 +76,7 @@ with col_logo2:
 st.divider()
 
 # ==========================================
-# 3. TAB NAVIGASI UTAMA (4 FITUR LENGKAP)
+# 3. TAB NAVIGASI UTAMA
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(
     [
@@ -130,13 +130,11 @@ with tab1:
             "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
-    # Mengecek dan memuat data siswa tersimpan dari upload Tab 3
     if "df_siswa" in st.session_state and not st.session_state[
         "df_siswa"
     ].empty:
         df_base = st.session_state["df_siswa"].copy()
     else:
-        # Default Data Contoh Jika Belum Ada File Diupload
         default_data = [
             ("1", "ABANG MUSHAVIR EDO", "L", "148355770"),
             ("2", "AHMAD YANI", "L", "3143662047"),
@@ -150,7 +148,6 @@ with tab1:
 
     session_key_rekap = f"df_rekap_{bln_rekap}_{thn_rekap}"
 
-    # Sinkronkan data jika ada update upload baru atau pilihan bulan baru
     if (
         session_key_rekap not in st.session_state
         or st.session_state.get("need_reload_rekap", False)
@@ -337,10 +334,10 @@ with tab1:
 
 
 # ------------------------------------------
-# TAB 2: PERSENTASE KEHADIRAN PER HARI
+# TAB 2: PERSENTASE KEHADIRAN PER HARI (PERSIS SESUAI FOTO)
 # ------------------------------------------
 with tab2:
-    st.subheader("📅 Persentase Kehadiran Per Hari")
+    st.subheader("📅 Persentase Kehadiran Per Hari (Format Persis Foto Excel)")
     st.caption("Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa.")
 
     col1, col2, _ = st.columns([2, 2, 4])
@@ -349,7 +346,7 @@ with tab2:
             "Pilih Bulan",
             options=list(range(1, 13)),
             format_func=lambda x: f"{nama_bulan[x-1]} (Bulan {x})",
-            index=datetime.now().month - 1,
+            index=3,  # Default April
             key="bln_tab2",
         )
     with col2:
@@ -357,7 +354,7 @@ with tab2:
             "Pilih Tahun",
             min_value=2020,
             max_value=2035,
-            value=datetime.now().year,
+            value=2026,
             key="thn_tab2",
         )
 
@@ -407,13 +404,11 @@ with tab2:
             else:
                 tot_siswa = int(jml_str)
                 hp = max(
-                    0.0, round(((tot_siswa - tot_absen) / tot_siswa) * 100, 1)
+                    0.0, round(((tot_siswa - tot_absen) / tot_siswa) * 100)
                 )
-                thp = min(100.0, round((tot_absen / tot_siswa) * 100, 1))
-                h_list.append(f"{int(hp)}%" if hp.is_integer() else f"{hp}%")
-                th_list.append(
-                    f"{int(thp)}%" if thp.is_integer() else f"{thp}%"
-                )
+                thp = min(100.0, round((tot_absen / tot_siswa) * 100))
+                h_list.append(f"{int(hp)}%")
+                th_list.append(f"{int(thp)}%")
 
         df_copy["Jumlah"] = jml_list
         df_copy["Hadir %"] = h_list
@@ -428,6 +423,147 @@ with tab2:
         hide_index=True,
     )
 
+    # Function Generator Excel HTML Persis Foto
+    def generate_excel_harian_html(df_data, bulan, tahun):
+        df_calc = hitung_ulang(df_data)
+
+        # Hitung Total
+        tot_s = sum(
+            [
+                int(x)
+                for x in df_calc["S"]
+                if str(x).isdigit()
+                and str(df_calc.loc[_].get("Jumlah Siswa")).upper() != "MINGGU"
+            ]
+        )
+        tot_i = sum(
+            [
+                int(x)
+                for x in df_calc["I"]
+                if str(x).isdigit()
+                and str(df_calc.loc[_].get("Jumlah Siswa")).upper() != "MINGGU"
+            ]
+        )
+        tot_a = sum(
+            [
+                int(x)
+                for x in df_calc["A"]
+                if str(x).isdigit()
+                and str(df_calc.loc[_].get("Jumlah Siswa")).upper() != "MINGGU"
+            ]
+        )
+        tot_jumlah = tot_s + tot_i + tot_a
+
+        # Hitung Rata-Rata Persentase Bulan Ini
+        valid_rows = df_calc[df_calc["Hadir %"] != "-"]
+        if len(valid_rows) > 0:
+            avg_hadir = round(
+                sum(
+                    [
+                        float(x.replace("%", ""))
+                        for x in valid_rows["Hadir %"]
+                    ]
+                )
+                / len(valid_rows)
+            )
+            avg_thadir = round(
+                sum(
+                    [
+                        float(x.replace("%", ""))
+                        for x in valid_rows["Tidak hadir %"]
+                    ]
+                )
+                / len(valid_rows)
+            )
+        else:
+            avg_hadir, avg_thadir = 100, 0
+
+        html = f"""
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="utf-8"/>
+            <style>
+                body {{ font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; }}
+                table {{ border-collapse: collapse; width: 100%; font-size: 11pt; }}
+                th, td {{ border: 1px solid black; padding: 4px; text-align: center; }}
+                .bg-minggu {{ background-color: #ff0000; color: black; font-weight: bold; text-align: center; }}
+                .bg-jumlah {{ font-weight: bold; background-color: #ffffff; }}
+                .bg-kuning {{ background-color: #ffff00; font-weight: bold; }}
+            </style>
+        </head>
+        <body>
+            <table>
+                <thead>
+                    <tr style="font-weight:bold; background-color:#ffffff;">
+                        <th rowspan="2" style="width: 50px;">TGL</th>
+                        <th rowspan="2" style="width: 100px;">Jumlah Siswa</th>
+                        <th colspan="3">Tidak hadir Karena</th>
+                        <th rowspan="2" style="width: 80px;">Jumlah</th>
+                        <th colspan="2">Presentase</th>
+                    </tr>
+                    <tr style="font-weight:bold; background-color:#ffffff;">
+                        <th style="width: 50px;">S</th>
+                        <th style="width: 50px;">I</th>
+                        <th style="width: 50px;">A</th>
+                        <th style="width: 80px;">Hadir %</th>
+                        <th style="width: 100px;">Tidak hadir %</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for idx, r in df_calc.iterrows():
+            jml_siswa_str = str(r["Jumlah Siswa"]).strip()
+            if jml_siswa_str.upper() == "MINGGU":
+                html += f"""
+                    <tr>
+                        <td><b>{r['TGL']}</b></td>
+                        <td colspan="7" class="bg-minggu">MINGGU</td>
+                    </tr>
+                """
+            else:
+                html += f"""
+                    <tr>
+                        <td><b>{r['TGL']}</b></td>
+                        <td>{r['Jumlah Siswa']}</td>
+                        <td>{r['S']}</td>
+                        <td>{r['I']}</td>
+                        <td>{r['A']}</td>
+                        <td>{r['Jumlah']}</td>
+                        <td>{r['Hadir %']}</td>
+                        <td>{r['Tidak hadir %']}</td>
+                    </tr>
+                """
+
+        html += f"""
+                    <tr class="bg-jumlah">
+                        <td colspan="2" style="text-align:center;"><b>JUMLAH</b></td>
+                        <td><b>{tot_s}</b></td>
+                        <td><b>{tot_i}</b></td>
+                        <td><b>{tot_a}</b></td>
+                        <td><b>{tot_jumlah}</b></td>
+                        <td class="bg-kuning"><b>{avg_hadir}%</b></td>
+                        <td class="bg-kuning"><b>{avg_thadir}%</b></td>
+                    </tr>
+                </tbody>
+            </table>
+            <br/><br/>
+            <table style="border:none; width:100%;">
+                <tr style="border:none;">
+                    <td style="border:none; width:50%;"></td>
+                    <td style="border:none; text-align:center;">
+                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas IX C<br/><br/><br/><br/>
+                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
+                        NIP. 199305202024211000
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        """
+        return html.encode("utf-8")
+
     btn_col1, btn_col2 = st.columns([1, 1.5])
     with btn_col1:
         if st.button("💾 Simpan & Hitung Ulang Persentase", key="btn_save"):
@@ -436,20 +572,21 @@ with tab2:
             st.rerun()
 
     with btn_col2:
-        df_export = hitung_ulang(edited_df)
-        csv_data = df_export.to_csv(index=False).encode("utf-8")
+        excel_harian_bytes = generate_excel_harian_html(
+            edited_df, bulan_selected, tahun_selected
+        )
 
         st.download_button(
-            label="💾 UNDUH FORMAT PERSENTASE KEHADIRAN HARIAN",
-            data=csv_data,
-            file_name=f"Rekap_Kehadiran_Harian_{nama_bulan[bulan_selected-1]}_{tahun_selected}.csv",
-            mime="text/csv",
-            key="btn_download",
+            label="💾 UNDUH PERSENTASE KEHADIRAN HARIAN (PERSIS FOTO EXCEL)",
+            data=excel_harian_bytes,
+            file_name=f"Rekap_Kehadiran_Harian_{nama_bulan[bulan_selected-1]}_{tahun_selected}.xls",
+            mime="application/vnd.ms-excel",
+            key="btn_download_harian_exact",
         )
 
 
 # ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA (AUTO MAPPING & SYNCRONIZE)
+# TAB 3: UPLOAD DATA SISWA
 # ------------------------------------------
 with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
@@ -471,12 +608,10 @@ with tab3:
             else:
                 df_uploaded = pd.read_excel(uploaded_file, dtype=str)
 
-            # Bersihkan nama kolom
             df_uploaded.columns = [
                 str(col).strip().upper() for col in df_uploaded.columns
             ]
 
-            # Fitur Pintar Auto-Rename Kolom ke Format Standar Rekap
             rename_dict = {}
             for col in df_uploaded.columns:
                 if any(
@@ -503,21 +638,22 @@ with tab3:
 
             df_uploaded = df_uploaded.rename(columns=rename_dict)
 
-            # Jika nomor tidak ada, buat nomor urut otomatis
             if "NO" not in df_uploaded.columns:
-                df_uploaded.insert(0, "NO", [str(i + 1) for i in range(len(df_uploaded))])
+                df_uploaded.insert(
+                    0, "NO", [str(i + 1) for i in range(len(df_uploaded))]
+                )
             if "L/P" not in df_uploaded.columns:
                 df_uploaded["L/P"] = "L"
             if "NOMOR INDUK" not in df_uploaded.columns:
                 df_uploaded["NOMOR INDUK"] = "-"
 
-            # Pilih kolom wajib saja
-            df_uploaded = df_uploaded[["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]]
+            df_uploaded = df_uploaded[
+                ["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]
+            ]
             df_uploaded = df_uploaded.dropna(subset=["NAMA MURID"]).reset_index(
                 drop=True
             )
 
-            # Simpan ke session state dan beri sinyal ke Tab 1
             st.session_state["df_siswa"] = df_uploaded
             st.session_state["need_reload_rekap"] = True
             st.success(
