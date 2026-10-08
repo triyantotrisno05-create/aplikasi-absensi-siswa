@@ -1,11 +1,10 @@
 import calendar
 from datetime import datetime
-import io
 import pandas as pd
 import streamlit as st
 
 # ==========================================
-# 1. KONFIGURASI HALAMAN
+# 1. KONFIGURASI HALAMAN STREAMLIT
 # ==========================================
 st.set_page_config(
     page_title="SMP NEGERI 1 NANGA MAHAP - Rekapitulasi Absensi",
@@ -17,13 +16,6 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .header-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 20px;
-        margin-bottom: 20px;
-    }
     .title-header {
         text-align: center;
         font-weight: 800;
@@ -59,14 +51,13 @@ st.markdown(
 )
 
 # ==========================================
-# 2. HEADER SEKOLAH & LOGO (DENGAN UPLOAD LOGO)
+# 2. HEADER SEKOLAH & LOGO
 # ==========================================
 col_logo1, col_text, col_logo2 = st.columns([1, 4, 1])
 
 with col_logo1:
-    # Menggunakan gambar placeholder/logo default, atau bisa upload logo
     st.image(
-        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=100
+        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=90
     )
 
 with col_text:
@@ -80,7 +71,6 @@ with col_text:
     )
 
 with col_logo2:
-    # Slot kosong/Simetris
     pass
 
 st.divider()
@@ -132,25 +122,30 @@ with tab1:
             "Pilih Tahun Rekap", value=datetime.now().year, key="thn_tab1"
         )
 
-    # Menampilkan data siswa jika sudah diupload di Tab 3
-    if "df_siswa" in st.session_state:
+    # Tampilkan Data Siswa jika sudah di-upload di Tab 3
+    if "df_siswa" in st.session_state and not st.session_state[
+        "df_siswa"
+    ].empty:
         df_display = st.session_state["df_siswa"].copy()
         if "Sakit (S)" not in df_display.columns:
             df_display["Sakit (S)"] = 0
             df_display["Izin (I)"] = 0
             df_display["Alpha (A)"] = 0
+            df_display["Total Absen"] = 0
+            df_display["Persentase Kehadiran"] = "100%"
         st.dataframe(df_display, use_container_width=True, hide_index=True)
     else:
-        # Default Data Dummy jika belum upload
+        # Default Data Dummy
         data_bulanan = {
-            "No": [1, 2, 3],
-            "NIS/NISN": ["1001", "1002", "1003"],
-            "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
-            "Sakit (S)": [1, 0, 2],
-            "Izin (I)": [0, 1, 0],
-            "Alpha (A)": [0, 0, 1],
-            "Total Absen": [1, 1, 3],
-            "Persentase Kehadiran": ["96%", "96%", "88%"],
+            "NO": [1, 2, 3],
+            "NOMOR INDUK": ["148355770", "3143662047", "3137752600"],
+            "NAMA MURID": ["ACHMAD SUHADAK", "AL ZAHARA PERTIWI", "ALPITRI SARI"],
+            "L/P": ["L", "P", "P"],
+            "Sakit (S)": [0, 0, 0],
+            "Izin (I)": [0, 0, 0],
+            "Alpha (A)": [0, 0, 0],
+            "Total Absen": [0, 0, 0],
+            "Persentase Kehadiran": ["100%", "100%", "100%"],
         }
         st.dataframe(
             pd.DataFrame(data_bulanan),
@@ -325,7 +320,7 @@ with tab2:
         csv_data = df_export.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="💾 UNDUH FORMAT PERSENTASE KEHADIRAN HARIAN (EXACT SESUAI GAMBAR)",
+            label="💾 UNDUH FORMAT PERSENTASE KEHADIRAN HARIAN",
             data=csv_data,
             file_name=f"Rekap_Kehadiran_Harian_{nama_bulan[bulan_selected-1]}_{tahun_selected}.csv",
             mime="text/csv",
@@ -334,48 +329,66 @@ with tab2:
 
 
 # ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA
-# ------------------------------------------
-# ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA (FIX SEPARATOR & CLEANING)
+# TAB 3: UPLOAD DATA SISWA (PARSER KOLOM & AUTO-CLEANING)
 # ------------------------------------------
 with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
     st.caption("Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda.")
 
-    uploaded_file = st.file_uploader("Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"])
+    uploaded_file = st.file_uploader(
+        "Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"]
+    )
 
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
-                # Mencoba baca dengan pemisah titik koma (;) dulu, jika gagal coba pemisah koma (,)
-                try:
-                    df_uploaded = pd.read_csv(uploaded_file, sep=";")
-                    if len(df_uploaded.columns) == 1:
-                        uploaded_file.seek(0)
-                        df_uploaded = pd.read_csv(uploaded_file, sep=",")
-                except Exception:
+                # Coba pembacaan dengan pemisah titik koma (;)
+                df_uploaded = pd.read_csv(uploaded_file, sep=";", dtype=str)
+
+                # Jika masih terbaca 1 kolom, coba pembacaan dengan koma (,)
+                if len(df_uploaded.columns) == 1:
                     uploaded_file.seek(0)
-                    df_uploaded = pd.read_csv(uploaded_file, sep=",")
+                    df_uploaded = pd.read_csv(uploaded_file, sep=",", dtype=str)
             else:
-                df_uploaded = pd.read_excel(uploaded_file)
+                df_uploaded = pd.read_excel(uploaded_file, dtype=str)
 
-            # Membersihkan baris yang kosong atau berisi tanda titik koma saja
+            # Bersihkan Nama Kolom
+            df_uploaded.columns = [
+                str(col).strip() for col in df_uploaded.columns
+            ]
+
+            # Dapatkan kolom pertama untuk pembersihan baris sampah (seperti ';;;')
+            first_col = df_uploaded.columns[0]
+
+            # Filter baris kosong dan baris bernilai sampah
             df_uploaded = df_uploaded.dropna(how="all")
-            
-            # Hapus baris jika nama kolom/isinya hanya berisi simbol titik koma
-            df_uploaded = df_uploaded[~df_uploaded.iloc[:, 0].astype(str).str.contains(r'^\;+$', na=False)]
+            df_uploaded = df_uploaded[
+                ~df_uploaded[first_col]
+                .astype(str)
+                .str.contains(r"^\;*$", na=False)
+                & (df_uploaded[first_col].astype(str).str.strip() != "")
+            ].reset_index(drop=True)
 
+            # Simpan ke Session State
             st.session_state["df_siswa"] = df_uploaded
-            st.success(f"✅ Berhasil mengunggah data {len(df_uploaded)} siswa!")
-            st.dataframe(df_uploaded, use_container_width=True, hide_index=True)
+            st.success(f"✅ Berhasil memproses data {len(df_uploaded)} siswa!")
+
         except Exception as e:
             st.error(f"Gagal membaca file: {e}")
 
-    if "df_siswa" in st.session_state:
+    # Tampilkan Data Siswa Terunggah
+    if "df_siswa" in st.session_state and not st.session_state[
+        "df_siswa"
+    ].empty:
         st.write("---")
-        st.write("### Data Siswa Saat Ini:")
-        st.dataframe(st.session_state["df_siswa"], use_container_width=True, hide_index=True)
+        st.write("### Data Siswa Tersimpan Saat Ini:")
+        st.dataframe(
+            st.session_state["df_siswa"],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 # ------------------------------------------
 # TAB 4: MUTASI SISWA
 # ------------------------------------------
