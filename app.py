@@ -3,21 +3,29 @@ import pandas as pd
 import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
-from datetime import datetime
+from datetime import datetime, date
 from PIL import Image
 
+# ==========================================
+# 1. KONFIGURASI HALAMAN & STATE
+# ==========================================
 st.set_page_config(page_title="Rekapitulasi Absensi Siswa", layout="wide")
 
-st.title("📋 Sistem Laporan Rekapitulasi Absensi Siswa")
-st.caption("Aplikasi Rekapitulasi Absensi Otomatis Sesuai Format Standard Sekolah")
+if "data_absensi" not in st.session_state:
+    st.session_state.data_absensi = pd.DataFrame([
+        {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+        {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+        {"No": 3, "Nama Murid": "AL JAMI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 1, "I": 0, "A": 3},
+        {"No": 4, "Nama Murid": "AYU NINGSIH", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+        {"No": 5, "Nama Murid": "EPRI SASKIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    ])
 
 # ==========================================
-# SIDEBAR - DATA SEKOLAH & KELAS
+# 2. SIDEBAR - DATA SEKOLAH & KELAS
 # ==========================================
 st.sidebar.header("🏫 Data Sekolah & Kelas")
 
-uploaded_logo = st.sidebar.file_uploader("Upload Logo Sekolah (PNG / JPG)", type=["png", "jpg", "jpeg"], key="logo_uploader")
+uploaded_logo = st.sidebar.file_uploader("Upload Logo Sekolah (PNG / JPG)", type=["png", "jpg", "jpeg"])
 if uploaded_logo is not None:
     logo_img = Image.open(uploaded_logo)
     st.sidebar.image(logo_img, width=120, caption="Logo Sekolah")
@@ -27,7 +35,7 @@ tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
 kelas = st.sidebar.text_input("Kelas", "IX C")
 bulan_tahun = st.sidebar.text_input("Bulan / Periode", "April 2026")
 tempat_cetak = st.sidebar.text_input("Kota / Tempat Laporan", "Nanga Mahap")
-tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", datetime(2026, 4, 30))
+tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", date(2026, 4, 30))
 wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Triyanto trisno ,S.Pd")
 nip_wali = st.sidebar.text_input("NIP Wali Kelas", "199305202024211001")
 
@@ -35,153 +43,47 @@ bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "A
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
 
 # ==========================================
-# HEADER LAPORAN UTAMA
+# 3. HEADER LAPORAN UTAMA
 # ==========================================
-st.markdown(f"<h2 style='text-align: center; margin-bottom: 0px;'>REKAPITULASI ABSENSI SISWA</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; margin-bottom: 0px;'>REKAPITULASI ABSENSI SISWA</h2>", unsafe_allow_html=True)
 st.markdown(f"<h3 style='text-align: center; margin-top: 0px; margin-bottom: 0px;'>{nama_sekolah.upper()}</h3>", unsafe_allow_html=True)
 st.markdown(f"<h4 style='text-align: center; margin-top: 0px;'>TAHUN PELAJARAN {tahun_pelajaran}</h4>", unsafe_allow_html=True)
 
 st.markdown(f"**KELAS : {kelas.upper()}**")
 
 # ==========================================
-# FITUR UPLOAD FILE SISWA (EXCEL / CSV)
-# ==========================================
-st.markdown("### 📤 Upload / Import Data Siswa (Excel / CSV)")
-uploaded_file = st.file_uploader(
-    "Pilih file Excel (.xlsx) atau CSV (.csv) berisi daftar siswa", 
-    type=["xlsx", "csv"],
-    key="uploader_siswarekap"
-)
-
-# Initial Data Default Sesuai Foto
-default_data = [
-    {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 3, "Nama Murid": "AL JAMI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 1, "I": 0, "A": 3},
-    {"No": 4, "Nama Murid": "AYU NINGSIH", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 5, "Nama Murid": "EPRI SASKIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 6, "Nama Murid": "EVA DWI AGVENESA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 1, "A": 0},
-    {"No": 7, "Nama Murid": "FAKHRY LIANDRA WIJAYA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 1, "I": 0, "A": 0},
-    {"No": 8, "Nama Murid": "FATIRTA LAJESON", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 9, "Nama Murid": "FELISIA MONIK. S.L", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
-    {"No": 10, "Nama Murid": "FRANSISKUS EFRILDIO EVAN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 11, "Nama Murid": "JIMI FAIZAL", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 12, "Nama Murid": "JULIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 13, "Nama Murid": "JULIANUS", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 14, "Nama Murid": "JULITA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
-    {"No": 15, "Nama Murid": "KALISTA VERA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 16, "Nama Murid": "MARSIANUS ANDRE", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 17, "Nama Murid": "MARTINIS JIMAN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 18, "Nama Murid": "MELISA RIANI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 19, "Nama Murid": "NADA MARDIATI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 20, "Nama Murid": "NIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
-    {"No": 21, "Nama Murid": "NURUL ANISA PUTRI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    {"No": 22, "Nama Murid": "RANGGA SAPUTRA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 3},
-    {"No": 23, "Nama Murid": "RASTI MARLINA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
-    {"No": 24, "Nama Murid": "RISCI BERNAT", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 25, "Nama Murid": "SALSABILA NURIL NAJWA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 26, "Nama Murid": "SOFFI JULIATI ULANDARI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 27, "Nama Murid": "TIRTA SAPUTRA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
-    {"No": 28, "Nama Murid": "YESINDO KHENJUN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 29, "Nama Murid": "YULITA JELSI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-    {"No": 30, "Nama Murid": "IBNU MAULANA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
-]
-
-if "data_absensi" not in st.session_state:
-    st.session_state.data_absensi = pd.DataFrame(default_data)
-
-if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            try:
-                df_upload = pd.read_csv(uploaded_file, sep=None, engine='python')
-            except Exception:
-                uploaded_file.seek(0)
-                df_upload = pd.read_csv(uploaded_file)
-        else:
-            df_upload = pd.read_excel(uploaded_file)
-        
-        column_map = {}
-        for col in df_upload.columns:
-            c_clean = str(col).strip().upper()
-            if c_clean in ["NO", "NO.", "NOMOR"]:
-                column_map[col] = "No"
-            elif "NIS" in c_clean or "INDUK" in c_clean or "NISN" in c_clean:
-                column_map[col] = "Nomor Induk"
-            elif "NAMA" in c_clean or "MURID" in c_clean or "SISWA" in c_clean:
-                column_map[col] = "Nama Murid"
-            elif c_clean in ["JK", "JENIS KELAMIN", "GENDER", "L/P", "SEX"]:
-                column_map[col] = "L/P"
-            elif "HBE" in c_clean or "EFEKTIF" in c_clean:
-                column_map[col] = "HBE"
-            elif "SAKIT" in c_clean or c_clean == "S":
-                column_map[col] = "S"
-            elif "IZIN" in c_clean or "IJIN" in c_clean or c_clean == "I":
-                column_map[col] = "I"
-            elif "ALPA" in c_clean or "ALPHA" in c_clean or "ABSEN" in c_clean or c_clean == "A":
-                column_map[col] = "A"
-
-        df_upload = df_upload.rename(columns=column_map)
-
-        if "No" not in df_upload.columns:
-            df_upload["No"] = list(range(1, len(df_upload) + 1))
-        if "Nama Murid" not in df_upload.columns:
-            df_upload["Nama Murid"] = df_upload.iloc[:, 0]
-        if "L/P" not in df_upload.columns:
-            df_upload["L/P"] = "L"
-        if "Nomor Induk" not in df_upload.columns:
-            df_upload["Nomor Induk"] = ""
-        if "HBE" not in df_upload.columns:
-            df_upload["HBE"] = 25
-        if "S" not in df_upload.columns:
-            df_upload["S"] = 0
-        if "I" not in df_upload.columns:
-            df_upload["I"] = 0
-        if "A" not in df_upload.columns:
-            df_upload["A"] = 0
-
-        df_upload["L/P"] = df_upload["L/P"].astype(str).str.strip().str.upper()
-        df_upload["L/P"] = df_upload["L/P"].apply(lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L")
-
-        required_cols = ["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]
-        st.session_state.data_absensi = df_upload[required_cols]
-        st.success("✅ Data siswa berhasil diunggah!")
-    except Exception as e:
-        st.error(f"Gagal membaca file: {e}")
-
-# ==========================================
-# INPUT / EDIT TABEL INTERAKTIF
+# 4. INPUT / EDIT TABEL INTERAKTIF
 # ==========================================
 st.markdown("### 📝 Input / Edit Data Absensi Siswa")
+
+df_to_edit = st.session_state.data_absensi.copy().reset_index(drop=True)
+
 edited_df = st.data_editor(
-    st.session_state.data_absensi,
-    column_config={
-        "L/P": st.column_config.SelectboxColumn("L/P", options=["L", "P"], required=True),
-        "HBE": st.column_config.NumberColumn("HBE", min_value=1, default=25),
-        "S": st.column_config.NumberColumn("S (Sakit)", min_value=0, default=0),
-        "I": st.column_config.NumberColumn("I (Izin)", min_value=0, default=0),
-        "A": st.column_config.NumberColumn("A (Alpa)", min_value=0, default=0),
-    },
+    df_to_edit,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor_absensi"
+    hide_index=True,
+    key="tabel_absensi_v2"
 )
 
-# Kalkulasi Data
+st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
+
+# ==========================================
+# 5. KALKULASI LAPORAN (TANPA JUMLAH HADIR)
+# ==========================================
 df_calc = edited_df.copy()
 for col in ["HBE", "S", "I", "A"]:
     df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
 
 df_calc["JUMLAH"] = df_calc["S"] + df_calc["I"] + df_calc["A"]
-df_calc["JUMLAH HADIR"] = df_calc["HBE"] - df_calc["JUMLAH"]
-df_calc["JUMLAH HADIR"] = df_calc["JUMLAH HADIR"].apply(lambda x: max(0, x))
 
-df_calc["PRESENTASE S"] = (df_calc["S"] / df_calc["HBE"])
-df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"])
-df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"])
-df_calc["PRESENTASE KEHADIRAN %"] = (df_calc["JUMLAH HADIR"] / df_calc["HBE"])
+# Kalkulasi Presentase
+df_calc["PRESENTASE S"] = (df_calc["S"] / df_calc["HBE"]).fillna(0)
+df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"]).fillna(0)
+df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"]).fillna(0)
+df_calc["PRESENTASE KEHADIRAN %"] = ((df_calc["HBE"] - df_calc["JUMLAH"]) / df_calc["HBE"]).fillna(0)
 
-# Tampilan Web (Dengan Kolom JUMLAH HADIR & Baris Total)
+# Tampilan Tabel Web (Kolom 'JUMLAH HADIR' Dihapus)
 df_view = pd.DataFrame()
 df_view["NO"] = df_calc["No"].astype(str)
 df_view["NAMA MURID"] = df_calc["Nama Murid"]
@@ -192,13 +94,12 @@ df_view["ABSENSI (S)"] = df_calc["S"].astype(str)
 df_view["ABSENSI (I)"] = df_calc["I"].astype(str)
 df_view["ABSENSI (A)"] = df_calc["A"].astype(str)
 df_view["JUMLAH"] = df_calc["JUMLAH"].astype(str)
-df_view["JUMLAH HADIR"] = df_calc["JUMLAH HADIR"].astype(str)
 df_view["PRESENTASE (S)"] = (df_calc["PRESENTASE S"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (I)"] = (df_calc["PRESENTASE I"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (A)"] = (df_calc["PRESENTASE A"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE KEHADIRAN %"] = (df_calc["PRESENTASE KEHADIRAN %"] * 100).round(0).astype(int).astype(str) + "%"
 
-# Tambahkan Baris TOTAL JUMLAH
+# Baris Jumlah Total
 total_l = (df_calc["L/P"] == "L").sum()
 total_p = (df_calc["L/P"] == "P").sum()
 total_siswa = len(df_calc)
@@ -208,10 +109,10 @@ total_i = df_calc["I"].sum()
 total_a = df_calc["A"].sum()
 total_jumlah_absen = df_calc["JUMLAH"].sum()
 
-avg_s_pct = f"{round(df_calc['PRESENTASE S'].mean() * 100)}%"
-avg_i_pct = f"{round(df_calc['PRESENTASE I'].mean() * 100)}%"
-avg_a_pct = f"{round(df_calc['PRESENTASE A'].mean() * 100)}%"
-avg_hadir_pct = f"{round(df_calc['PRESENTASE KEHADIRAN %'].mean() * 100)}%"
+avg_s_pct = f"{round(df_calc['PRESENTASE S'].mean() * 100) if len(df_calc) > 0 else 0}%"
+avg_i_pct = f"{round(df_calc['PRESENTASE I'].mean() * 100) if len(df_calc) > 0 else 0}%"
+avg_a_pct = f"{round(df_calc['PRESENTASE A'].mean() * 100) if len(df_calc) > 0 else 0}%"
+avg_hadir_pct = f"{round(df_calc['PRESENTASE KEHADIRAN %'].mean() * 100) if len(df_calc) > 0 else 0}%"
 
 total_row = {
     "NO": "",
@@ -223,7 +124,6 @@ total_row = {
     "ABSENSI (I)": str(total_i),
     "ABSENSI (A)": str(total_a),
     "JUMLAH": str(total_jumlah_absen),
-    "JUMLAH HADIR": "",
     "PRESENTASE (S)": avg_s_pct,
     "PRESENTASE (I)": avg_i_pct,
     "PRESENTASE (A)": avg_a_pct,
@@ -233,7 +133,7 @@ total_row = {
 df_view_with_total = pd.concat([df_view, pd.DataFrame([total_row])], ignore_index=True)
 
 st.markdown("### 📊 Hasil Rekapitulasi Absensi Siswa")
-st.dataframe(df_view_with_total, use_container_width=True)
+st.dataframe(df_view_with_total, use_container_width=True, hide_index=True)
 
 st.markdown(f"""
 **Ringkasan Siswa:**
@@ -243,13 +143,15 @@ st.markdown(f"""
 """)
 
 # ==========================================
-# FUNCTION GENERATE EXCEL (SESUAI FOTO)
+# 6. EXCEL GENERATOR (TANPA JUMLAH HADIR)
 # ==========================================
 def generate_excel_laporan():
     output = io.BytesIO()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Rekap Absensi"
+
+    ws.views.sheetView[0].showGridLines = True
 
     font_title = Font(name="Calibri", size=14, bold=True)
     font_subtitle = Font(name="Calibri", size=11, bold=True)
@@ -267,22 +169,22 @@ def generate_excel_laporan():
         bottom=Side(style='thin', color='000000')
     )
 
-    # Title Block
-    ws.merge_cells("A1:N1")
+    # Header Dokumen
+    ws.merge_cells("A1:M1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A2:N2")
+    ws.merge_cells("A2:M2")
     ws.cell(row=2, column=1, value=nama_sekolah.upper()).font = font_title
     ws.cell(row=2, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A3:N3")
+    ws.merge_cells("A3:M3")
     ws.cell(row=3, column=1, value=f"TAHUN PELAJARAN {tahun_pelajaran}").font = font_subtitle
     ws.cell(row=3, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
     ws.cell(row=5, column=1, value=f"KELAS   : {kelas.upper()}").font = font_bold
 
-    # Header Row 7 & 8 (Dengan JUMLAH HADIR)
+    # Header Tabel Excel
     headers_r7 = [
         ("NO", "A7", "A8"),
         ("NAMA MURID", "B7", "B8"),
@@ -291,9 +193,8 @@ def generate_excel_laporan():
         ("HBE", "E7", "E8"),
         ("ABSENSI", "F7", "H7"),
         ("JUMLAH", "I7", "I8"),
-        ("JUMLAH HADIR", "J7", "J8"),
-        ("PRESENTASE", "K7", "M7"),
-        ("PRESENTASE KEHADIRAN %", "N7", "N8")
+        ("PRESENTASE", "J7", "L7"),
+        ("PRESENTASE KEHADIRAN %", "M7", "M8")
     ]
 
     for title, start_col, end_col in headers_r7:
@@ -308,16 +209,16 @@ def generate_excel_laporan():
     ws.cell(row=8, column=7, value="I").font = font_header
     ws.cell(row=8, column=8, value="A").font = font_header
 
-    ws.cell(row=8, column=11, value="S").font = font_header
-    ws.cell(row=8, column=12, value="I").font = font_header
-    ws.cell(row=8, column=13, value="A").font = font_header
+    ws.cell(row=8, column=10, value="S").font = font_header
+    ws.cell(row=8, column=11, value="I").font = font_header
+    ws.cell(row=8, column=12, value="A").font = font_header
 
-    for c in range(1, 15):
+    for c in range(1, 14):
         ws.cell(row=7, column=c).border = thin_border
         ws.cell(row=8, column=c).border = thin_border
         ws.cell(row=8, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-    # Fill Data Siswa
+    # Isi Data Tabel Excel
     start_row = 9
     num_students = len(df_calc)
     for idx, row in df_calc.iterrows():
@@ -325,7 +226,7 @@ def generate_excel_laporan():
         ws.cell(row=r, column=1, value=row.get("No", idx + 1))
         ws.cell(row=r, column=2, value=row.get("Nama Murid", ""))
         
-        lp_cell = ws.cell(row=r, column=3, value=row.get("L/P", ""))
+        lp_cell = ws.cell(row=r, column=3, value=row.get("L/P", "L"))
         lp_cell.fill = green_fill
         
         ws.cell(row=r, column=4, value=row.get("Nomor Induk", ""))
@@ -334,42 +235,41 @@ def generate_excel_laporan():
         ws.cell(row=r, column=7, value=row.get("I", 0))
         ws.cell(row=r, column=8, value=row.get("A", 0))
         
+        # Rumus Excel Jumlah Absen & Presentase
         ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})")
-        ws.cell(row=r, column=10, value=f"=E{r}-I{r}")
-        
-        ws.cell(row=r, column=11, value=f"=F{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=12, value=f"=G{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=13, value=f"=H{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=14, value=f"=J{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=10, value=f"=F{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=11, value=f"=G{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=12, value=f"=H{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=13, value=f"=(E{r}-I{r})/E{r}").number_format = '0%'
 
-        for c in range(1, 15):
+        for c in range(1, 14):
             cell = ws.cell(row=r, column=c)
             cell.border = thin_border
-            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] else font_data
+            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13] else font_data
             if c in [2, 4]:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Baris TOTAL JUMLAH (Kuning)
+    # Baris Total Excel
     total_row_idx = start_row + num_students
     ws.merge_cells(f"A{total_row_idx}:B{total_row_idx}")
     cell_tot_lbl = ws.cell(row=total_row_idx, column=1, value="JUMLAH")
     cell_tot_lbl.font = font_title
     cell_tot_lbl.alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.cell(row=total_row_idx, column=3, value=f"=COUNTA(C9:C{total_row_idx-1})") # Total Siswa
-    ws.cell(row=total_row_idx, column=6, value=f"=SUM(F9:F{total_row_idx-1})") # Total S
-    ws.cell(row=total_row_idx, column=7, value=f"=SUM(G9:G{total_row_idx-1})") # Total I
-    ws.cell(row=total_row_idx, column=8, value=f"=SUM(H9:H{total_row_idx-1})") # Total A
-    ws.cell(row=total_row_idx, column=9, value=f"=SUM(I9:I{total_row_idx-1})") # Total Absen
+    ws.cell(row=total_row_idx, column=3, value=f"=COUNTA(C9:C{total_row_idx-1})")
+    ws.cell(row=total_row_idx, column=6, value=f"=SUM(F9:F{total_row_idx-1})")
+    ws.cell(row=total_row_idx, column=7, value=f"=SUM(G9:G{total_row_idx-1})")
+    ws.cell(row=total_row_idx, column=8, value=f"=SUM(H9:H{total_row_idx-1})")
+    ws.cell(row=total_row_idx, column=9, value=f"=SUM(I9:I{total_row_idx-1})")
     
+    ws.cell(row=total_row_idx, column=10, value=f"=AVERAGE(J9:J{total_row_idx-1})").number_format = '0%'
     ws.cell(row=total_row_idx, column=11, value=f"=AVERAGE(K9:K{total_row_idx-1})").number_format = '0%'
     ws.cell(row=total_row_idx, column=12, value=f"=AVERAGE(L9:L{total_row_idx-1})").number_format = '0%'
     ws.cell(row=total_row_idx, column=13, value=f"=AVERAGE(M9:M{total_row_idx-1})").number_format = '0%'
-    ws.cell(row=total_row_idx, column=14, value=f"=AVERAGE(N9:N{total_row_idx-1})").number_format = '0%'
 
-    for c in range(1, 15):
+    for c in range(1, 14):
         cell = ws.cell(row=total_row_idx, column=c)
         cell.fill = yellow_fill
         cell.border = thin_border
@@ -377,7 +277,7 @@ def generate_excel_laporan():
         if c not in [1, 2]:
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Ringkasan Laki/Perempuan (Di Bawah Sebelah Kiri)
+    # Ringkasan L/P di Excel
     r_sum1 = total_row_idx + 2
     r_sum2 = r_sum1 + 1
     r_sum3 = r_sum2 + 1
@@ -394,32 +294,26 @@ def generate_excel_laporan():
     ws.cell(row=r_sum3, column=3, value=":").alignment = Alignment(horizontal="center")
     ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})').font = font_bold
 
-    # Tanda Tangan Wali Kelas (Sebelah Kanan)
+    # Tanda Tangan Wali Kelas
     r_ttd_tgl = total_row_idx + 4
     r_ttd_jab = r_ttd_tgl + 1
     r_ttd_nama = r_ttd_jab + 4
     r_ttd_nip = r_ttd_nama + 1
 
-    ws.cell(row=r_ttd_tgl, column=11, value=tgl_cetak_str).font = font_data
-    ws.cell(row=r_ttd_jab, column=11, value=f"Wali Kelas {kelas}").font = font_data
-    ws.cell(row=r_ttd_nama, column=11, value=wali_kelas).font = Font(name="Calibri", size=10, bold=True, underline="single")
-    ws.cell(row=r_ttd_nip, column=11, value=f"NIP. {nip_wali}" if nip_wali else "").font = font_bold
+    ws.cell(row=r_ttd_tgl, column=10, value=tgl_cetak_str).font = font_data
+    ws.cell(row=r_ttd_jab, column=10, value=f"Wali Kelas {kelas}").font = font_data
+    ws.cell(row=r_ttd_nama, column=10, value=wali_kelas).font = Font(name="Calibri", size=10, bold=True, underline="single")
+    ws.cell(row=r_ttd_nip, column=10, value=f"NIP. {nip_wali}" if nip_wali else "").font = font_bold
 
-    # Lebar Kolom Auto Fit
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
-        max_len = 0
-        for cell in col:
-            if cell.row >= 7:
-                val_str = str(cell.value or '')
-                if len(val_str) > max_len:
-                    max_len = len(val_str)
-        ws.column_dimensions[col_letter].width = max(max_len + 3, 6)
+    # Lebar Kolom Excel
+    col_widths = {
+        'A': 5, 'B': 30, 'C': 6, 'D': 16, 'E': 6,
+        'F': 5, 'G': 5, 'H': 5, 'I': 8,
+        'J': 8, 'K': 8, 'L': 8, 'M': 16
+    }
+    for col_letter, width in col_widths.items():
+        ws.column_dimensions[col_letter].width = width
 
-    ws.column_dimensions['B'].width = 32
-    ws.column_dimensions['D'].width = 18
-
-    # Page Setup Cetak
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.sheet_properties.pageSetUpPr.fitToPage = True
