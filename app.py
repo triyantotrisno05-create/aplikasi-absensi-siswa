@@ -3,6 +3,7 @@ import pandas as pd
 import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.drawing.image import Image as OpenpyxlImage
 from datetime import date
 from PIL import Image
 
@@ -22,14 +23,14 @@ if "data_absensi" not in st.session_state:
     ])
 
 # ==========================================
-# 2. SIDEBAR - DATA SEKOLAH & FITUR TAMBAH SISWA
+# 2. SIDEBAR - INFORMASI & FITUR UPLOAD
 # ==========================================
 st.sidebar.header("🏫 Data Sekolah & Kelas")
 
 uploaded_logo = st.sidebar.file_uploader("Upload Logo Sekolah (PNG / JPG)", type=["png", "jpg", "jpeg"])
 if uploaded_logo is not None:
     logo_img = Image.open(uploaded_logo)
-    st.sidebar.image(logo_img, width=120, caption="Logo Sekolah")
+    st.sidebar.image(logo_img, width=100, caption="Logo Sekolah")
 
 nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
 tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
@@ -44,10 +45,52 @@ bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "A
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
 
 # ------------------------------------------
-# FITUR BARU: FORM TAMBAH SISWA BARU
+# FITUR UPLOAD DATA SISWA (EXCEL / CSV)
 # ------------------------------------------
 st.sidebar.divider()
-st.sidebar.header("➕ Tambah Siswa Baru")
+st.sidebar.header("📁 Upload File Data Siswa")
+st.sidebar.caption("File disarankan memiliki kolom: `Nama Murid`, `L/P`, `Nomor Induk`, `HBE` (opsional: `S`, `I`, `A`)")
+
+uploaded_data_file = st.sidebar.file_uploader("Upload File Siswa (.xlsx / .csv)", type=["xlsx", "xls", "csv"])
+
+if uploaded_data_file is not None:
+    if st.sidebar.button("📥 Terapkan Data dari File", type="primary"):
+        try:
+            if uploaded_data_file.name.endswith(".csv"):
+                df_import = pd.read_csv(uploaded_data_file)
+            else:
+                df_import = pd.read_excel(uploaded_data_file)
+            
+            # Normalisasi nama kolom (case insensitive)
+            df_import.columns = [str(c).strip() for c in df_import.columns]
+            
+            # Buat struktur dataframe baru
+            df_new = pd.DataFrame()
+            df_new["Nama Murid"] = df_import.get("Nama Murid", df_import.get("Nama", df_import.iloc[:, 0] if len(df_import.columns) > 0 else ""))
+            df_new["L/P"] = df_import.get("L/P", df_import.get("JK", df_import.get("Jenis Kelamin", "L")))
+            df_new["Nomor Induk"] = df_import.get("Nomor Induk", df_import.get("NIS", df_import.get("NISN", "")))
+            df_new["HBE"] = df_import.get("HBE", 25)
+            df_new["S"] = df_import.get("S", 0)
+            df_new["I"] = df_import.get("I", 0)
+            df_new["A"] = df_import.get("A", 0)
+            
+            # Bersihkan nilai NaN
+            df_new = df_new.fillna({"Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0})
+            df_new["No"] = range(1, len(df_new) + 1)
+            
+            # Urutkan kolom
+            cols_order = ["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]
+            st.session_state.data_absensi = df_new[cols_order].copy()
+            st.sidebar.success(f"✅ Berhasil mengimpor {len(df_new)} siswa!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Gagal membaca file: {e}")
+
+# ------------------------------------------
+# FITUR TAMBAH SISWA MANUAL
+# ------------------------------------------
+st.sidebar.divider()
+st.sidebar.header("➕ Tambah Siswa Manual")
 
 with st.sidebar.form("form_tambah_siswa", clear_on_submit=True):
     input_nama = st.text_input("Nama Lengkap Siswa")
@@ -72,7 +115,6 @@ with st.sidebar.form("form_tambah_siswa", clear_on_submit=True):
                 "I": 0,
                 "A": 0
             }
-            # Tambah baris baru ke session state
             st.session_state.data_absensi = pd.concat(
                 [st.session_state.data_absensi, pd.DataFrame([siswa_baru])], 
                 ignore_index=True
@@ -93,7 +135,7 @@ st.markdown(f"**KELAS : {kelas.upper()}**")
 # 4. INPUT / EDIT TABEL INTERAKTIF
 # ==========================================
 st.markdown("### 📝 Input / Edit Data Absensi Siswa")
-st.caption("Anda dapat menambah baris langsung di bawah tabel ini, atau mengedit jumlah S/I/A dan data siswa.")
+st.caption("Anda dapat mengubah isi tabel langsung di bawah ini atau mengunggah berkas Excel/CSV dari menu samping.")
 
 df_to_edit = st.session_state.data_absensi.copy().reset_index(drop=True)
 
@@ -102,15 +144,14 @@ edited_df = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
-    key="tabel_absensi_v3"
+    key="tabel_absensi_v4"
 )
 
-# Update nomor urut otomatis
 edited_df["No"] = range(1, len(edited_df) + 1)
 st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
 
 # ==========================================
-# 5. KALKULASI LAPORAN (TANPA JUMLAH HADIR)
+# 5. KALKULASI LAPORAN
 # ==========================================
 df_calc = edited_df.copy()
 for col in ["HBE", "S", "I", "A"]:
@@ -184,7 +225,7 @@ st.markdown(f"""
 """)
 
 # ==========================================
-# 6. EXCEL GENERATOR
+# 6. EXCEL GENERATOR (DENGAN LOGO RAPI DI KIRI ATAS)
 # ==========================================
 def generate_excel_laporan():
     output = io.BytesIO()
@@ -210,7 +251,23 @@ def generate_excel_laporan():
         bottom=Side(style='thin', color='000000')
     )
 
-    # Header Dokumen
+    # ------------------------------------------
+    # SISIPKAN LOGO DI KIRI ATAS (A1 / A2)
+    # ------------------------------------------
+    if uploaded_logo is not None:
+        try:
+            uploaded_logo.seek(0)
+            img_for_excel = OpenpyxlImage(uploaded_logo)
+            # Atur ukuran proporsional (tinggi ~65px)
+            img_for_excel.height = 65
+            img_for_excel.width = int(65 * (logo_img.width / logo_img.height)) if logo_img.height else 65
+            
+            # Letakkan di Cell A1
+            ws.add_image(img_for_excel, "A1")
+        except Exception:
+            pass
+
+    # Header Judul Laporan (A1 - M3)
     ws.merge_cells("A1:M1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
@@ -349,7 +406,7 @@ def generate_excel_laporan():
 
     # Lebar Kolom Excel
     col_widths = {
-        'A': 5, 'B': 30, 'C': 6, 'D': 16, 'E': 6,
+        'A': 6, 'B': 30, 'C': 6, 'D': 16, 'E': 6,
         'F': 5, 'G': 5, 'H': 5, 'I': 8,
         'J': 8, 'K': 8, 'L': 8, 'M': 16
     }
