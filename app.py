@@ -162,7 +162,6 @@ with tab1:
             else:
                 df_upload = pd.read_excel(uploaded_file)
             
-            # Normalisasi nama kolom agar tidak sensitif huruf besar/kecil & spasi
             column_map = {}
             for col in df_upload.columns:
                 c_clean = str(col).strip().upper()
@@ -185,13 +184,11 @@ with tab1:
 
             df_upload = df_upload.rename(columns=column_map)
 
-            # Buat kolom otomatis jika tidak ada di CSV
             if "No" not in df_upload.columns:
                 df_upload["No"] = list(range(1, len(df_upload) + 1))
             if "Nomor Induk / NISN" not in df_upload.columns:
                 df_upload["Nomor Induk / NISN"] = "-"
             if "Nama Siswa" not in df_upload.columns:
-                # Ambil kolom pertama sebagai nama jika tidak terdeteksi
                 df_upload["Nama Siswa"] = df_upload.iloc[:, 0]
             if "Jenis Kelamin" not in df_upload.columns:
                 df_upload["Jenis Kelamin"] = "L"
@@ -204,7 +201,6 @@ with tab1:
             if "Alpa" not in df_upload.columns:
                 df_upload["Alpa"] = 0
 
-            # Format kolom Jenis Kelamin
             df_upload["Jenis Kelamin"] = df_upload["Jenis Kelamin"].astype(str).str.strip().str.upper()
             df_upload["Jenis Kelamin"] = df_upload["Jenis Kelamin"].apply(lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L")
 
@@ -469,4 +465,32 @@ with tab3:
                 row.get("Jenis Kelamin", ""),
                 row.get("Jenis Mutasi", ""),
                 row.get("Asal / Tujuan Sekolah", ""),
-                row.get("Alasan
+                row.get("Alasan Mutasi", "")
+            ])
+
+        ws.append([
+            "TOTAL SISWA MASUK", "", "", "", "", f"{m_masuk} Orang", "", ""
+        ])
+        ws.append([
+            "TOTAL SISWA KELUAR", "", "", "", "", f"{m_keluar} Orang", "", ""
+        ])
+
+        apply_excel_styling(
+            ws, headers,
+            nama_sekolah.upper(),
+            f"LAPORAN MUTASI SISWA - {kelas.upper()}",
+            f"PERIODE: {bulan_tahun.upper()}",
+            wali_kelas,
+            tgl_cetak_str,
+            logo_file=uploaded_logo
+        )
+
+        wb.save(output)
+        return output.getvalue()
+
+    st.download_button(
+        label="📥 Download Excel Mutasi Siswa",
+        data=generate_excel_mutasi(),
+        file_name=f"Laporan_Mutasi_Siswa_{kelas}_{bulan_tahun}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
