@@ -24,11 +24,12 @@ if uploaded_logo is not None:
 
 nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
 tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
-kelas = st.sidebar.text_input("Kelas", "XI C")
-bulan_tahun = st.sidebar.text_input("Bulan / Periode", "Oktober 2026")
+kelas = st.sidebar.text_input("Kelas", "IX C")
+bulan_tahun = st.sidebar.text_input("Bulan / Periode", "April 2026")
 tempat_cetak = st.sidebar.text_input("Kota / Tempat Laporan", "Nanga Mahap")
-tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", datetime.today())
-wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "FRISKA EKASARI, S.Pd.")
+tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", datetime(2026, 4, 30))
+wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Triyanto trisno ,S.Pd")
+nip_wali = st.sidebar.text_input("NIP Wali Kelas", "199305202024211001")
 
 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
@@ -52,19 +53,43 @@ uploaded_file = st.file_uploader(
     key="uploader_siswarekap"
 )
 
-# Initial Data Default
+# Initial Data Default Sesuai Foto
 default_data = [
     {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
     {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
     {"No": 3, "Nama Murid": "AL JAMI", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 1, "I": 0, "A": 3},
     {"No": 4, "Nama Murid": "AYU NINGSIH", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
     {"No": 5, "Nama Murid": "EPRI SASKIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 6, "Nama Murid": "EVA DWI AGVENESA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 1, "A": 0},
+    {"No": 7, "Nama Murid": "FAKHRY LIANDRA WIJAYA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 1, "I": 0, "A": 0},
+    {"No": 8, "Nama Murid": "FATIRTA LAJESON", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 9, "Nama Murid": "FELISIA MONIK. S.L", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
+    {"No": 10, "Nama Murid": "FRANSISKUS EFRILDIO EVAN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 11, "Nama Murid": "JIMI FAIZAL", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 12, "Nama Murid": "JULIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 13, "Nama Murid": "JULIANUS", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 14, "Nama Murid": "JULITA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
+    {"No": 15, "Nama Murid": "KALISTA VERA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 16, "Nama Murid": "MARSIANUS ANDRE", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 17, "Nama Murid": "MARTINIS JIMAN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 18, "Nama Murid": "MELISA RIANI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 19, "Nama Murid": "NADA MARDIATI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 20, "Nama Murid": "NIA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
+    {"No": 21, "Nama Murid": "NURUL ANISA PUTRI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 22, "Nama Murid": "RANGGA SAPUTRA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 3},
+    {"No": 23, "Nama Murid": "RASTI MARLINA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
+    {"No": 24, "Nama Murid": "RISCI BERNAT", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 25, "Nama Murid": "SALSABILA NURIL NAJWA", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 26, "Nama Murid": "SOFFI JULIATI ULANDARI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 27, "Nama Murid": "TIRTA SAPUTRA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 1},
+    {"No": 28, "Nama Murid": "YESINDO KHENJUN", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 29, "Nama Murid": "YULITA JELSI", "L/P": "P", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 30, "Nama Murid": "IBNU MAULANA", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
 ]
 
 if "data_absensi" not in st.session_state:
     st.session_state.data_absensi = pd.DataFrame(default_data)
 
-# Pemrosesan File Upload
 if uploaded_file is not None:
     try:
         if uploaded_file.name.endswith('.csv'):
@@ -76,7 +101,6 @@ if uploaded_file is not None:
         else:
             df_upload = pd.read_excel(uploaded_file)
         
-        # Pemetaan nama kolom otomatis
         column_map = {}
         for col in df_upload.columns:
             c_clean = str(col).strip().upper()
@@ -99,7 +123,6 @@ if uploaded_file is not None:
 
         df_upload = df_upload.rename(columns=column_map)
 
-        # Lengkapi kolom jika tidak ada
         if "No" not in df_upload.columns:
             df_upload["No"] = list(range(1, len(df_upload) + 1))
         if "Nama Murid" not in df_upload.columns:
@@ -117,7 +140,6 @@ if uploaded_file is not None:
         if "A" not in df_upload.columns:
             df_upload["A"] = 0
 
-        # Format L/P
         df_upload["L/P"] = df_upload["L/P"].astype(str).str.strip().str.upper()
         df_upload["L/P"] = df_upload["L/P"].apply(lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L")
 
@@ -159,27 +181,69 @@ df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"])
 df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"])
 df_calc["PRESENTASE KEHADIRAN %"] = (df_calc["JUMLAH HADIR"] / df_calc["HBE"])
 
-# Tampilan Web (Tanpa Kolom JUMLAH HADIR)
+# Tampilan Web (Dengan Kolom JUMLAH HADIR & Baris Total)
 df_view = pd.DataFrame()
-df_view["NO"] = df_calc["No"]
+df_view["NO"] = df_calc["No"].astype(str)
 df_view["NAMA MURID"] = df_calc["Nama Murid"]
 df_view["L/P"] = df_calc["L/P"]
 df_view["NOMOR INDUK"] = df_calc["Nomor Induk"]
-df_view["HBE"] = df_calc["HBE"]
-df_view["ABSENSI (S)"] = df_calc["S"]
-df_view["ABSENSI (I)"] = df_calc["I"]
-df_view["ABSENSI (A)"] = df_calc["A"]
-df_view["JUMLAH"] = df_calc["JUMLAH"]
+df_view["HBE"] = df_calc["HBE"].astype(str)
+df_view["ABSENSI (S)"] = df_calc["S"].astype(str)
+df_view["ABSENSI (I)"] = df_calc["I"].astype(str)
+df_view["ABSENSI (A)"] = df_calc["A"].astype(str)
+df_view["JUMLAH"] = df_calc["JUMLAH"].astype(str)
+df_view["JUMLAH HADIR"] = df_calc["JUMLAH HADIR"].astype(str)
 df_view["PRESENTASE (S)"] = (df_calc["PRESENTASE S"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (I)"] = (df_calc["PRESENTASE I"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE (A)"] = (df_calc["PRESENTASE A"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE KEHADIRAN %"] = (df_calc["PRESENTASE KEHADIRAN %"] * 100).round(0).astype(int).astype(str) + "%"
 
+# Tambahkan Baris TOTAL JUMLAH
+total_l = (df_calc["L/P"] == "L").sum()
+total_p = (df_calc["L/P"] == "P").sum()
+total_siswa = len(df_calc)
+
+total_s = df_calc["S"].sum()
+total_i = df_calc["I"].sum()
+total_a = df_calc["A"].sum()
+total_jumlah_absen = df_calc["JUMLAH"].sum()
+
+avg_s_pct = f"{round(df_calc['PRESENTASE S'].mean() * 100)}%"
+avg_i_pct = f"{round(df_calc['PRESENTASE I'].mean() * 100)}%"
+avg_a_pct = f"{round(df_calc['PRESENTASE A'].mean() * 100)}%"
+avg_hadir_pct = f"{round(df_calc['PRESENTASE KEHADIRAN %'].mean() * 100)}%"
+
+total_row = {
+    "NO": "",
+    "NAMA MURID": "JUMLAH",
+    "L/P": str(total_siswa),
+    "NOMOR INDUK": "",
+    "HBE": "",
+    "ABSENSI (S)": str(total_s),
+    "ABSENSI (I)": str(total_i),
+    "ABSENSI (A)": str(total_a),
+    "JUMLAH": str(total_jumlah_absen),
+    "JUMLAH HADIR": "",
+    "PRESENTASE (S)": avg_s_pct,
+    "PRESENTASE (I)": avg_i_pct,
+    "PRESENTASE (A)": avg_a_pct,
+    "PRESENTASE KEHADIRAN %": avg_hadir_pct,
+}
+
+df_view_with_total = pd.concat([df_view, pd.DataFrame([total_row])], ignore_index=True)
+
 st.markdown("### 📊 Hasil Rekapitulasi Absensi Siswa")
-st.dataframe(df_view, use_container_width=True)
+st.dataframe(df_view_with_total, use_container_width=True)
+
+st.markdown(f"""
+**Ringkasan Siswa:**
+- **Laki - Laki** : {total_l}
+- **Perempuan** : {total_p}
+- **Jumlah akhir bulan** : {total_siswa}
+""")
 
 # ==========================================
-# FUNCTION GENERATE EXCEL (PERCETAKAN)
+# FUNCTION GENERATE EXCEL (SESUAI FOTO)
 # ==========================================
 def generate_excel_laporan():
     output = io.BytesIO()
@@ -194,6 +258,8 @@ def generate_excel_laporan():
     font_bold = Font(name="Calibri", size=10, bold=True)
 
     green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
     thin_border = Border(
         left=Side(style='thin', color='000000'),
         right=Side(style='thin', color='000000'),
@@ -202,21 +268,21 @@ def generate_excel_laporan():
     )
 
     # Title Block
-    ws.merge_cells("A1:M1")
+    ws.merge_cells("A1:N1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A2:M2")
+    ws.merge_cells("A2:N2")
     ws.cell(row=2, column=1, value=nama_sekolah.upper()).font = font_title
     ws.cell(row=2, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.merge_cells("A3:M3")
+    ws.merge_cells("A3:N3")
     ws.cell(row=3, column=1, value=f"TAHUN PELAJARAN {tahun_pelajaran}").font = font_subtitle
     ws.cell(row=3, column=1).alignment = Alignment(horizontal="center", vertical="center")
 
     ws.cell(row=5, column=1, value=f"KELAS   : {kelas.upper()}").font = font_bold
 
-    # Header Row 7 & 8 (Tanpa JUMLAH HADIR)
+    # Header Row 7 & 8 (Dengan JUMLAH HADIR)
     headers_r7 = [
         ("NO", "A7", "A8"),
         ("NAMA MURID", "B7", "B8"),
@@ -225,8 +291,9 @@ def generate_excel_laporan():
         ("HBE", "E7", "E8"),
         ("ABSENSI", "F7", "H7"),
         ("JUMLAH", "I7", "I8"),
-        ("PRESENTASE", "J7", "L7"),
-        ("PRESENTASE KEHADIRAN %", "M7", "M8")
+        ("JUMLAH HADIR", "J7", "J8"),
+        ("PRESENTASE", "K7", "M7"),
+        ("PRESENTASE KEHADIRAN %", "N7", "N8")
     ]
 
     for title, start_col, end_col in headers_r7:
@@ -241,17 +308,18 @@ def generate_excel_laporan():
     ws.cell(row=8, column=7, value="I").font = font_header
     ws.cell(row=8, column=8, value="A").font = font_header
 
-    ws.cell(row=8, column=10, value="S").font = font_header
-    ws.cell(row=8, column=11, value="I").font = font_header
-    ws.cell(row=8, column=12, value="A").font = font_header
+    ws.cell(row=8, column=11, value="S").font = font_header
+    ws.cell(row=8, column=12, value="I").font = font_header
+    ws.cell(row=8, column=13, value="A").font = font_header
 
-    for c in range(1, 14):
+    for c in range(1, 15):
         ws.cell(row=7, column=c).border = thin_border
         ws.cell(row=8, column=c).border = thin_border
         ws.cell(row=8, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-    # Fill Data
+    # Fill Data Siswa
     start_row = 9
+    num_students = len(df_calc)
     for idx, row in df_calc.iterrows():
         r = start_row + idx
         ws.cell(row=r, column=1, value=row.get("No", idx + 1))
@@ -267,21 +335,77 @@ def generate_excel_laporan():
         ws.cell(row=r, column=8, value=row.get("A", 0))
         
         ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})")
+        ws.cell(row=r, column=10, value=f"=E{r}-I{r}")
         
-        ws.cell(row=r, column=10, value=f"=F{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=11, value=f"=G{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=12, value=f"=H{r}/E{r}").number_format = '0%'
-        ws.cell(row=r, column=13, value=f"=(E{r}-I{r})/E{r}").number_format = '0%'
+        ws.cell(row=r, column=11, value=f"=F{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=12, value=f"=G{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=13, value=f"=H{r}/E{r}").number_format = '0%'
+        ws.cell(row=r, column=14, value=f"=J{r}/E{r}").number_format = '0%'
 
-        for c in range(1, 14):
+        for c in range(1, 15):
             cell = ws.cell(row=r, column=c)
             cell.border = thin_border
-            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13] else font_data
+            cell.font = font_bold if c in [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] else font_data
             if c in [2, 4]:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
+    # Baris TOTAL JUMLAH (Kuning)
+    total_row_idx = start_row + num_students
+    ws.merge_cells(f"A{total_row_idx}:B{total_row_idx}")
+    cell_tot_lbl = ws.cell(row=total_row_idx, column=1, value="JUMLAH")
+    cell_tot_lbl.font = font_title
+    cell_tot_lbl.alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.cell(row=total_row_idx, column=3, value=f"=COUNTA(C9:C{total_row_idx-1})") # Total Siswa
+    ws.cell(row=total_row_idx, column=6, value=f"=SUM(F9:F{total_row_idx-1})") # Total S
+    ws.cell(row=total_row_idx, column=7, value=f"=SUM(G9:G{total_row_idx-1})") # Total I
+    ws.cell(row=total_row_idx, column=8, value=f"=SUM(H9:H{total_row_idx-1})") # Total A
+    ws.cell(row=total_row_idx, column=9, value=f"=SUM(I9:I{total_row_idx-1})") # Total Absen
+    
+    ws.cell(row=total_row_idx, column=11, value=f"=AVERAGE(K9:K{total_row_idx-1})").number_format = '0%'
+    ws.cell(row=total_row_idx, column=12, value=f"=AVERAGE(L9:L{total_row_idx-1})").number_format = '0%'
+    ws.cell(row=total_row_idx, column=13, value=f"=AVERAGE(M9:M{total_row_idx-1})").number_format = '0%'
+    ws.cell(row=total_row_idx, column=14, value=f"=AVERAGE(N9:N{total_row_idx-1})").number_format = '0%'
+
+    for c in range(1, 15):
+        cell = ws.cell(row=total_row_idx, column=c)
+        cell.fill = yellow_fill
+        cell.border = thin_border
+        cell.font = font_bold
+        if c not in [1, 2]:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Ringkasan Laki/Perempuan (Di Bawah Sebelah Kiri)
+    r_sum1 = total_row_idx + 2
+    r_sum2 = r_sum1 + 1
+    r_sum3 = r_sum2 + 1
+
+    ws.cell(row=r_sum1, column=1, value="Laki – Laki").font = font_bold
+    ws.cell(row=r_sum1, column=3, value=":").alignment = Alignment(horizontal="center")
+    ws.cell(row=r_sum1, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "L")').font = font_bold
+
+    ws.cell(row=r_sum2, column=1, value="Perempuan").font = font_bold
+    ws.cell(row=r_sum2, column=3, value=":").alignment = Alignment(horizontal="center")
+    ws.cell(row=r_sum2, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "P")').font = font_bold
+
+    ws.cell(row=r_sum3, column=1, value="Jumlah akhir bulan").font = font_bold
+    ws.cell(row=r_sum3, column=3, value=":").alignment = Alignment(horizontal="center")
+    ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})').font = font_bold
+
+    # Tanda Tangan Wali Kelas (Sebelah Kanan)
+    r_ttd_tgl = total_row_idx + 4
+    r_ttd_jab = r_ttd_tgl + 1
+    r_ttd_nama = r_ttd_jab + 4
+    r_ttd_nip = r_ttd_nama + 1
+
+    ws.cell(row=r_ttd_tgl, column=11, value=tgl_cetak_str).font = font_data
+    ws.cell(row=r_ttd_jab, column=11, value=f"Wali Kelas {kelas}").font = font_data
+    ws.cell(row=r_ttd_nama, column=11, value=wali_kelas).font = Font(name="Calibri", size=10, bold=True, underline="single")
+    ws.cell(row=r_ttd_nip, column=11, value=f"NIP. {nip_wali}" if nip_wali else "").font = font_bold
+
+    # Lebar Kolom Auto Fit
     for col in ws.columns:
         col_letter = get_column_letter(col[0].column)
         max_len = 0
@@ -292,20 +416,10 @@ def generate_excel_laporan():
                     max_len = len(val_str)
         ws.column_dimensions[col_letter].width = max(max_len + 3, 6)
 
-    ws.column_dimensions['B'].width = 30
+    ws.column_dimensions['B'].width = 32
     ws.column_dimensions['D'].width = 18
 
-    # Tanda Tangan
-    last_data_row = start_row + len(df_calc)
-    r_ttd_tgl = last_data_row + 3
-    r_ttd_jab = r_ttd_tgl + 1
-    r_ttd_nama = r_ttd_jab + 4
-
-    ws.cell(row=r_ttd_tgl, column=10, value=tgl_cetak_str).font = font_data
-    ws.cell(row=r_ttd_jab, column=10, value="Wali Kelas,").font = font_data
-    ws.cell(row=r_ttd_nama, column=10, value=f"({wali_kelas})").font = font_bold
-
-    # Print Setup
+    # Page Setup Cetak
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.sheet_properties.pageSetUpPr.fitToPage = True
