@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import os
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.drawing.image import Image as OpenpyxlImage
@@ -8,19 +9,46 @@ from datetime import date
 from PIL import Image
 
 # ==========================================
+# 0. KONFIGURASI PENYIMPANAN DATA PERMANEN
+# ==========================================
+DATA_FILE = "database_absensi_siswa.csv"
+
+# Data Default jika file database belum ada
+DATA_DEFAULT = pd.DataFrame([
+    {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "0012345678", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "0012345679", "HBE": 25, "S": 0, "I": 0, "A": 2},
+    {"No": 3, "Nama Murid": "AL JAMI", "L/P": "L", "Nomor Induk": "0012345680", "HBE": 25, "S": 1, "I": 0, "A": 3},
+    {"No": 4, "Nama Murid": "AYU NINGSIH", "L/P": "P", "Nomor Induk": "0012345681", "HBE": 25, "S": 0, "I": 0, "A": 0},
+    {"No": 5, "Nama Murid": "EPRI SASKIA", "L/P": "P", "Nomor Induk": "0012345682", "HBE": 25, "S": 0, "I": 0, "A": 2},
+])
+
+def load_saved_data():
+    """Membaca data dari file lokal jika ada."""
+    if os.path.exists(DATA_FILE):
+        try:
+            df = pd.read_csv(DATA_FILE, dtype={"Nomor Induk": str})
+            df["No"] = range(1, len(df) + 1)
+            return df
+        except Exception:
+            return DATA_DEFAULT.copy()
+    else:
+        return DATA_DEFAULT.copy()
+
+def save_data_permanently(df):
+    """Menyimpan data ke file lokal secara permanen."""
+    df_to_save = df.copy()
+    df_to_save["No"] = range(1, len(df_to_save) + 1)
+    df_to_save.to_csv(DATA_FILE, index=False)
+
+
+# ==========================================
 # 1. KONFIGURASI HALAMAN & STATE
 # ==========================================
 st.set_page_config(page_title="Rekapitulasi Absensi Siswa", layout="wide")
 
-# Inisialisasi State Data Absensi
+# Load data tersimpan saat pertama kali aplikasi dijalankan / di-refresh
 if "data_absensi" not in st.session_state:
-    st.session_state.data_absensi = pd.DataFrame([
-        {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "0012345678", "HBE": 25, "S": 0, "I": 0, "A": 0},
-        {"No": 2, "Nama Murid": "AHMAD YANI", "L/P": "L", "Nomor Induk": "0012345679", "HBE": 25, "S": 0, "I": 0, "A": 2},
-        {"No": 3, "Nama Murid": "AL JAMI", "L/P": "L", "Nomor Induk": "0012345680", "HBE": 25, "S": 1, "I": 0, "A": 3},
-        {"No": 4, "Nama Murid": "AYU NINGSIH", "L/P": "P", "Nomor Induk": "0012345681", "HBE": 25, "S": 0, "I": 0, "A": 0},
-        {"No": 5, "Nama Murid": "EPRI SASKIA", "L/P": "P", "Nomor Induk": "0012345682", "HBE": 25, "S": 0, "I": 0, "A": 2},
-    ])
+    st.session_state.data_absensi = load_saved_data()
 
 # ==========================================
 # 2. SIDEBAR - INFORMASI & FITUR UPLOAD
@@ -28,9 +56,13 @@ if "data_absensi" not in st.session_state:
 st.sidebar.header("🏫 Data Sekolah & Kelas")
 
 uploaded_logo = st.sidebar.file_uploader("Upload Logo Sekolah (PNG / JPG)", type=["png", "jpg", "jpeg"])
+logo_img = None
 if uploaded_logo is not None:
-    logo_img = Image.open(uploaded_logo)
-    st.sidebar.image(logo_img, width=100, caption="Logo Sekolah")
+    try:
+        logo_img = Image.open(uploaded_logo)
+        st.sidebar.image(logo_img, width=100, caption="Logo Sekolah")
+    except Exception:
+        pass
 
 nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SMP NEGERI 1 NANGA MAHAP")
 tahun_pelajaran = st.sidebar.text_input("Tahun Pelajaran", "2025/2026")
@@ -45,87 +77,88 @@ bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "A
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
 
 # ------------------------------------------
-# FITUR UPLOAD DATA SISWA (BISA BACA NAMA SISWA, NISN, NOMOR)
+# FITUR UPLOAD DATA SISWA (DETEKSI SEPARATOR CSV AUTO)
 # ------------------------------------------
 st.sidebar.divider()
 st.sidebar.header("📁 Upload File Data Siswa")
-st.sidebar.caption("Format file yang didukung: Excel (.xlsx) atau CSV (.csv) berisi kolom `NOMOR`, `NAMA SISWA`, `NISN`")
+st.sidebar.caption("Format file yang didukung: Excel (.xlsx) atau CSV (.csv) berisi kolom `NOMOR`, `NAMA SISWA`, `L/P`, `NISN`")
 
 uploaded_data_file = st.sidebar.file_uploader("Upload File Siswa (.xlsx / .csv)", type=["xlsx", "xls", "csv"])
 
 if uploaded_data_file is not None:
     if st.sidebar.button("📥 Terapkan Data dari File", type="primary"):
         try:
-            # BACA FILE
+            # Baca file dengan auto deteksi separator (; atau ,)
             if uploaded_data_file.name.endswith(".csv"):
-                df_raw = pd.read_csv(uploaded_data_file)
+                try:
+                    df_raw = pd.read_csv(uploaded_data_file, sep=None, engine='python')
+                except Exception:
+                    uploaded_data_file.seek(0)
+                    df_raw = pd.read_csv(uploaded_data_file, sep=';')
             else:
                 df_raw = pd.read_excel(uploaded_data_file)
             
-            # Hapus baris yang seluruhnya kosong
             df_raw = df_raw.dropna(how="all")
             
-            # Buat pencarian kolom secara fleksibel (case-insensitive & hapus spasi berlebih)
-            col_map = {}
-            for original_col in df_raw.columns:
-                clean_col_name = str(original_col).strip().upper()
-                col_map[clean_col_name] = original_col
+            col_map = {str(col).strip().upper(): col for col in df_raw.columns}
 
-            # Function pencarian kolom pintar
-            def find_col(keywords, default_value=None):
+            def find_col(keywords):
                 for kw in keywords:
                     for clean_key, orig_key in col_map.items():
                         if kw in clean_key:
                             return df_raw[orig_key]
-                return default_value
+                return None
 
-            # Deteksi Kolom
             series_nama = find_col(["NAMA SISWA", "NAMA MURID", "NAMA", "SISWA"])
-            series_nisn = find_col(["NISN", "NOMOR INDUK", "NIS", "INDEKS", "INDUK"])
-            series_lp = find_col(["L/P", "JK", "JENIS KELAMIN", "KELAMIN"])
+            series_nisn = find_col(["NISN", "NOMOR INDUK", "NIS", "INDUK", "NO INDUK"])
+            series_lp = find_col(["L/P", "JK", "JENIS KELAMIN", "KELAMIN", "SEX"])
             series_hbe = find_col(["HBE", "HARI BELAJAR"])
             series_s = find_col(["S", "SAKIT"])
             series_i = find_col(["I", "IZIN"])
             series_a = find_col(["A", "ALPHA", "ALPA"])
 
-            # Validasi Minimal Kolom Nama
+            # Jika header tidak cocok, gunakan posisi kolom
+            if series_nama is None and len(df_raw.columns) >= 2:
+                series_nama = df_raw.iloc[:, 1]
+                if series_nisn is None and len(df_raw.columns) >= 4:
+                    series_nisn = df_raw.iloc[:, 3]
+                if series_lp is None and len(df_raw.columns) >= 3:
+                    series_lp = df_raw.iloc[:, 2]
+
             if series_nama is None:
-                st.sidebar.error("❌ Tidak dapat menemukan kolom 'NAMA SISWA' dalam file! Pastikan ada kolom berisi nama siswa.")
+                st.sidebar.error("❌ Gagal membaca nama siswa. Pastikan file CSV/Excel memiliki kolom NAMA SISWA.")
             else:
                 df_new = pd.DataFrame()
-                
-                # Nama Siswa
                 df_new["Nama Murid"] = series_nama.astype(str).str.strip().str.upper()
-                
-                # Filter baris yang nama siswanya kosong
                 df_new = df_new[df_new["Nama Murid"].notna() & (df_new["Nama Murid"] != "NAN") & (df_new["Nama Murid"] != "")]
                 
-                # Nomor Induk / NISN
                 if series_nisn is not None:
                     df_new["Nomor Induk"] = series_nisn.astype(str).str.replace(".0", "", regex=False).str.strip().replace("nan", "")
                 else:
                     df_new["Nomor Induk"] = ""
 
-                # Jenis Kelamin (L/P)
                 if series_lp is not None:
-                    df_new["L/P"] = series_lp.astype(str).str.strip().str.upper().apply(lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L")
+                    df_new["L/P"] = series_lp.astype(str).str.strip().str.upper().apply(
+                        lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L"
+                    )
                 else:
                     df_new["L/P"] = "L"
 
-                # HBE, S, I, A
                 df_new["HBE"] = pd.to_numeric(series_hbe, errors="coerce").fillna(25).astype(int) if series_hbe is not None else 25
                 df_new["S"] = pd.to_numeric(series_s, errors="coerce").fillna(0).astype(int) if series_s is not None else 0
                 df_new["I"] = pd.to_numeric(series_i, errors="coerce").fillna(0).astype(int) if series_i is not None else 0
                 df_new["A"] = pd.to_numeric(series_a, errors="coerce").fillna(0).astype(int) if series_a is not None else 0
                 
-                # Reset Nomor Urut
                 df_new["No"] = range(1, len(df_new) + 1)
                 
-                # Reorder Kolom
                 cols_order = ["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]
-                st.session_state.data_absensi = df_new[cols_order].reset_index(drop=True).copy()
+                final_df = df_new[cols_order].reset_index(drop=True).copy()
                 
-                st.sidebar.success(f"✅ Berhasil mengimpor {len(df_new)} siswa!")
+                # Simpan ke session state DAN simpan permanen ke file
+                st.session_state.data_absensi = final_df
+                save_data_permanently(final_df)
+                
+                st.sidebar.success(f"✅ Berhasil memproses & menyimpan {len(final_df)} data siswa!")
                 st.rerun()
 
         except Exception as e:
@@ -152,20 +185,30 @@ with st.sidebar.form("form_tambah_siswa", clear_on_submit=True):
             no_baru = len(st.session_state.data_absensi) + 1
             siswa_baru = {
                 "No": no_baru,
-                "Nama Murid": input_nama.upper(),
+                "Nama Murid": input_nama.upper().strip(),
                 "L/P": input_lp,
-                "Nomor Induk": input_nis,
+                "Nomor Induk": input_nis.strip(),
                 "HBE": input_hbe,
                 "S": 0,
                 "I": 0,
                 "A": 0
             }
-            st.session_state.data_absensi = pd.concat(
+            new_df = pd.concat(
                 [st.session_state.data_absensi, pd.DataFrame([siswa_baru])], 
                 ignore_index=True
             )
-            st.sidebar.success(f"Berhasil menambahkan {input_nama.upper()}!")
+            st.session_state.data_absensi = new_df
+            save_data_permanently(new_df)
+            st.sidebar.success(f"Berhasil menambahkan & menyimpan {input_nama.upper()}!")
             st.rerun()
+
+# Tombol Reset ke Data Bawaan
+st.sidebar.divider()
+if st.sidebar.button("🔄 Reset ke Data Default"):
+    st.session_state.data_absensi = DATA_DEFAULT.copy()
+    save_data_permanently(DATA_DEFAULT)
+    st.sidebar.info("Data telah dikembalikan ke standar awal.")
+    st.rerun()
 
 # ==========================================
 # 3. HEADER LAPORAN UTAMA
@@ -180,7 +223,7 @@ st.markdown(f"**KELAS : {kelas.upper()}**")
 # 4. INPUT / EDIT TABEL INTERAKTIF
 # ==========================================
 st.markdown("### 📝 Input / Edit Data Absensi Siswa")
-st.caption("Anda dapat mengubah isi tabel langsung di bawah ini atau mengunggah berkas Excel/CSV dari sidebar.")
+st.caption("Ubah isi tabel langsung di bawah ini. Tekan tombol **💾 Simpan Perubahan Data** untuk menyimpan secara permanen agar tidak hilang saat di-refresh.")
 
 df_to_edit = st.session_state.data_absensi.copy().reset_index(drop=True)
 
@@ -189,16 +232,22 @@ edited_df = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
-    key="tabel_absensi_v5"
+    key="tabel_absensi_v6"
 )
 
-edited_df["No"] = range(1, len(edited_df) + 1)
-st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
+# Tombol Simpan Perubahan Edit Tabel
+col_btn1, col_btn2 = st.columns([1, 4])
+with col_btn1:
+    if st.button("💾 Simpan Perubahan Data", type="primary"):
+        edited_df["No"] = range(1, len(edited_df) + 1)
+        st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
+        save_data_permanently(st.session_state.data_absensi)
+        st.success("✅ Perubahan data berhasil disimpan secara permanen!")
 
 # ==========================================
 # 5. KALKULASI LAPORAN
 # ==========================================
-df_calc = edited_df.copy()
+df_calc = st.session_state.data_absensi.copy()
 for col in ["HBE", "S", "I", "A"]:
     df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
 
@@ -270,7 +319,7 @@ st.markdown(f"""
 """)
 
 # ==========================================
-# 6. EXCEL GENERATOR (DENGAN LOGO DI KIRI ATAS)
+# 6. EXCEL GENERATOR (SIAP CETAK)
 # ==========================================
 def generate_excel_laporan():
     output = io.BytesIO()
@@ -296,8 +345,7 @@ def generate_excel_laporan():
         bottom=Side(style='thin', color='000000')
     )
 
-    # Sisipkan Logo
-    if uploaded_logo is not None:
+    if uploaded_logo is not None and logo_img is not None:
         try:
             uploaded_logo.seek(0)
             img_for_excel = OpenpyxlImage(uploaded_logo)
@@ -307,7 +355,6 @@ def generate_excel_laporan():
         except Exception:
             pass
 
-    # Judul Dokumen
     ws.merge_cells("A1:M1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
@@ -322,7 +369,6 @@ def generate_excel_laporan():
 
     ws.cell(row=5, column=1, value=f"KELAS   : {kelas.upper()}").font = font_bold
 
-    # Header Tabel
     headers_r7 = [
         ("NO", "A7", "A8"),
         ("NAMA MURID", "B7", "B8"),
@@ -356,7 +402,6 @@ def generate_excel_laporan():
         ws.cell(row=8, column=c).border = thin_border
         ws.cell(row=8, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-    # Isi Data Tabel Excel
     start_row = 9
     num_students = len(df_calc)
     for idx, row in df_calc.iterrows():
@@ -373,7 +418,6 @@ def generate_excel_laporan():
         ws.cell(row=r, column=7, value=row.get("I", 0))
         ws.cell(row=r, column=8, value=row.get("A", 0))
         
-        # Rumus Excel
         ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})")
         ws.cell(row=r, column=10, value=f"=F{r}/E{r}").number_format = '0%'
         ws.cell(row=r, column=11, value=f"=G{r}/E{r}").number_format = '0%'
@@ -389,7 +433,6 @@ def generate_excel_laporan():
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Baris Total Excel
     total_row_idx = start_row + num_students
     ws.merge_cells(f"A{total_row_idx}:B{total_row_idx}")
     cell_tot_lbl = ws.cell(row=total_row_idx, column=1, value="JUMLAH")
@@ -416,7 +459,6 @@ def generate_excel_laporan():
         if c not in [1, 2]:
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Ringkasan L/P di Excel
     r_sum1 = total_row_idx + 2
     r_sum2 = r_sum1 + 1
     r_sum3 = r_sum2 + 1
@@ -433,7 +475,6 @@ def generate_excel_laporan():
     ws.cell(row=r_sum3, column=3, value=":").alignment = Alignment(horizontal="center")
     ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})' if num_students > 0 else 0).font = font_bold
 
-    # Tanda Tangan Wali Kelas
     r_ttd_tgl = total_row_idx + 4
     r_ttd_jab = r_ttd_tgl + 1
     r_ttd_nama = r_ttd_jab + 4
@@ -444,7 +485,6 @@ def generate_excel_laporan():
     ws.cell(row=r_ttd_nama, column=10, value=wali_kelas).font = Font(name="Calibri", size=10, bold=True, underline="single")
     ws.cell(row=r_ttd_nip, column=10, value=f"NIP. {nip_wali}" if nip_wali else "").font = font_bold
 
-    # Lebar Kolom Excel
     col_widths = {
         'A': 6, 'B': 30, 'C': 6, 'D': 18, 'E': 6,
         'F': 5, 'G': 5, 'H': 5, 'I': 8,
