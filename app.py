@@ -7,9 +7,9 @@ import streamlit as st
 # 1. KONFIGURASI HALAMAN STREAMLIT
 # ==========================================
 st.set_page_config(
-    page_title="SMP NEGERI 1 NANGA MAHAP - Rekapitulasi Absensi",
+    page_title="Sistem Rekapitulasi Absensi Sekolah",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS Styling
@@ -19,16 +19,16 @@ st.markdown(
     .title-header {
         text-align: center;
         font-weight: 800;
-        font-size: 2.2rem;
+        font-size: 2.0rem;
         color: #212529;
         margin-bottom: 0px;
     }
     .subtitle-header {
         text-align: center;
         font-weight: 700;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         color: #495057;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
     div.stButton > button:first-child, div.stDownloadButton > button:first-child {
         background-color: #ff4d4f !important;
@@ -51,22 +51,46 @@ st.markdown(
 )
 
 # ==========================================
-# 2. HEADER SEKOLAH & LOGO
+# 2. PENGATURAN IDENTITAS SEKOLAH (SIDEBAR)
+# ==========================================
+with st.sidebar:
+    st.header("⚙️ Pengaturan Header & Data")
+
+    nama_sekolah = st.text_input(
+        "Nama Sekolah", value="SMP NEGERI 1 NANGA MAHAP"
+    )
+    kelas_input = st.text_input("Kelas", value="IX C")
+    tahun_ajaran = st.text_input("Tahun Pelajaran", value="2025/2026")
+    nama_wali = st.text_input("Nama Wali Kelas", value="Trivanto trisno, S.Pd")
+    nip_wali = st.text_input("NIP Wali Kelas", value="199305202024211000")
+    kota_lokasi = st.text_input("Kota / Kecamatan", value="Nanga Mahap")
+
+    st.subheader("🖼️ Upload Logo Sekolah")
+    uploaded_logo = st.file_uploader(
+        "Upload Logo (PNG / JPG)", type=["png", "jpg", "jpeg"]
+    )
+
+# ==========================================
+# 3. TAMPILAN HEADER UTAMA APLIKASI
 # ==========================================
 col_logo1, col_text, col_logo2 = st.columns([1, 4, 1])
 
 with col_logo1:
-    st.image(
-        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=90
-    )
+    if uploaded_logo is not None:
+        st.image(uploaded_logo, width=90)
+    else:
+        # Placeholder jika belum upload logo
+        st.image(
+            "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=90
+        )
 
 with col_text:
     st.markdown(
-        "<h1 class='title-header'>SMP NEGERI 1 NANGA MAHAP</h1>",
+        f"<h1 class='title-header'>{nama_sekolah.upper()}</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<h3 class='subtitle-header'>REKAPITULASI ABSENSI & MUTASI SISWA - IX C (2025/2026)</h3>",
+        f"<h3 class='subtitle-header'>REKAPITULASI ABSENSI & MUTASI SISWA - {kelas_input.upper()} ({tahun_ajaran})</h3>",
         unsafe_allow_html=True,
     )
 
@@ -76,7 +100,7 @@ with col_logo2:
 st.divider()
 
 # ==========================================
-# 3. TAB NAVIGASI UTAMA
+# 4. TAB NAVIGASI UTAMA
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(
     [
@@ -106,10 +130,8 @@ nama_bulan = [
 # TAB 1: REKAP ABSENSI BULANAN
 # ------------------------------------------
 with tab1:
-    st.subheader("📊 Rekap Absensi Bulanan (Sesuai Format Gambar Excel)")
-    st.caption(
-        "Lakukan pengeditan data absensi bulanan atau unduh format rekap lengkap."
-    )
+    st.subheader("📊 Rekap Absensi Bulanan")
+    st.caption("Lakukan pengeditan data absensi bulanan siswa.")
 
     col_b1, col_b2, col_b3 = st.columns([2, 2, 2])
     with col_b1:
@@ -242,7 +264,7 @@ with tab1:
         <head><meta charset="utf-8"/></head>
         <body>
             <h2 align="center">REKAPITULASI ABSENSI BULANAN SISWA</h2>
-            <h3 align="center">SMP NEGERI 1 NANGA MAHAP - KELAS IX C</h3>
+            <h3 align="center">{nama_sekolah.upper()} - KELAS {kelas_input.upper()}</h3>
             <p><b>Bulan:</b> {nama_bulan[bulan-1]} {tahun} | <b>HBE:</b> {hbe} Hari</p>
             <table border="1" style="border-collapse:collapse; text-align:center;">
                 <thead>
@@ -308,10 +330,10 @@ with tab1:
                 <tr>
                     <td width="60%"></td>
                     <td align="center">
-                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
-                        Wali Kelas IX C<br/><br/><br/><br/>
-                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
-                        NIP. 199305202024211000
+                        {kota_lokasi}, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas {kelas_input}<br/><br/><br/><br/>
+                        <b><u>{nama_wali}</u></b><br/>
+                        NIP. {nip_wali}
                     </td>
                 </tr>
             </table>
@@ -334,7 +356,7 @@ with tab1:
 
 
 # ------------------------------------------
-# TAB 2: PERSENTASE KEHADIRAN PER HARI (PERSIS SESUAI FOTO)
+# TAB 2: PERSENTASE KEHADIRAN PER HARI
 # ------------------------------------------
 with tab2:
     st.subheader("📅 Persentase Kehadiran Per Hari (Format Persis Foto Excel)")
@@ -346,7 +368,7 @@ with tab2:
             "Pilih Bulan",
             options=list(range(1, 13)),
             format_func=lambda x: f"{nama_bulan[x-1]} (Bulan {x})",
-            index=3,  # Default April
+            index=3,
             key="bln_tab2",
         )
     with col2:
@@ -423,11 +445,9 @@ with tab2:
         hide_index=True,
     )
 
-    # Function Generator Excel HTML Persis Foto
     def generate_excel_harian_html(df_data, bulan, tahun):
         df_calc = hitung_ulang(df_data)
 
-        # Hitung Total
         tot_s = sum(
             [
                 int(x)
@@ -454,7 +474,6 @@ with tab2:
         )
         tot_jumlah = tot_s + tot_i + tot_a
 
-        # Hitung Rata-Rata Persentase Bulan Ini
         valid_rows = df_calc[df_calc["Hadir %"] != "-"]
         if len(valid_rows) > 0:
             avg_hadir = round(
@@ -552,10 +571,10 @@ with tab2:
                 <tr style="border:none;">
                     <td style="border:none; width:50%;"></td>
                     <td style="border:none; text-align:center;">
-                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
-                        Wali Kelas IX C<br/><br/><br/><br/>
-                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
-                        NIP. 199305202024211000
+                        {kota_lokasi}, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas {kelas_input}<br/><br/><br/><br/>
+                        <b><u>{nama_wali}</u></b><br/>
+                        NIP. {nip_wali}
                     </td>
                 </tr>
             </table>
@@ -589,10 +608,8 @@ with tab2:
 # TAB 3: UPLOAD DATA SISWA
 # ------------------------------------------
 with tab3:
-    st.subheader("📂 Upload Data Siswa Kelas IX C")
-    st.caption(
-        "Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda. Kolom otomatis dipetakan ke Rekapitulasi!"
-    )
+    st.subheader(f"📂 Upload Data Siswa Kelas {kelas_input}")
+    st.caption("Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda.")
 
     uploaded_file = st.file_uploader(
         "Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"]
@@ -657,7 +674,7 @@ with tab3:
             st.session_state["df_siswa"] = df_uploaded
             st.session_state["need_reload_rekap"] = True
             st.success(
-                f"✅ BERHASIL! Data {len(df_uploaded)} siswa telah dimasukkan dan terhubung ke Rekapitulasi Bulanan!"
+                f"✅ BERHASIL! Data {len(df_uploaded)} siswa telah dimasukkan!"
             )
 
         except Exception as e:
@@ -679,10 +696,8 @@ with tab3:
 # TAB 4: MUTASI SISWA
 # ------------------------------------------
 with tab4:
-    st.subheader("🔄 Data Mutasi Siswa (Sesuai Format Foto Gambar)")
-    st.caption(
-        "Isi/edit tabel mutasi di bawah, lalu klik unduh untuk mendapatkan file Excel persis sesuai gambar."
-    )
+    st.subheader("🔄 Data Mutasi Siswa")
+    st.caption("Isi/edit tabel mutasi di bawah ini.")
 
     col_m_b, col_m_t = st.columns(2)
     with col_m_b:
@@ -756,11 +771,11 @@ with tab4:
         </head>
         <body>
             <div class="header-title">MUTASI SISWA</div>
-            <div class="header-title">SMP NEGERI 1 NANGA MAHAP</div>
-            <div class="header-title">TAHUN PELAJARAN 2025/2026</div>
+            <div class="header-title">{nama_sekolah.upper()}</div>
+            <div class="header-title">TAHUN PELAJARAN {tahun_ajaran}</div>
             <br/><br/>
             <table class="no-border" style="width: auto; text-align: left;">
-                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Kelas</td><td class="no-border">: IX C</td></tr>
+                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Kelas</td><td class="no-border">: {kelas_input}</td></tr>
                 <tr class="no-border"><td class="no-border" style="font-weight:bold;">Bulan</td><td class="no-border">: {nama_bulan[bulan-1]}</td></tr>
             </table>
             <br/>
@@ -804,10 +819,10 @@ with tab4:
                 <tr style="border:none;">
                     <td style="border:none; width:60%;"></td>
                     <td style="border:none; text-align:center;">
-                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
-                        Wali Kelas IX C<br/><br/><br/><br/>
-                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
-                        NIP. 199305202024211000
+                        {kota_lokasi}, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas {kelas_input}<br/><br/><br/><br/>
+                        <b><u>{nama_wali}</u></b><br/>
+                        NIP. {nip_wali}
                     </td>
                 </tr>
             </table>
