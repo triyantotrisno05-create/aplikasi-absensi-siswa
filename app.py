@@ -103,7 +103,7 @@ nama_bulan = [
 ]
 
 # ------------------------------------------
-# TAB 1: REKAP ABSENSI BULANAN (FORMAT PERSIS GAMBAR)
+# TAB 1: REKAP ABSENSI BULANAN
 # ------------------------------------------
 with tab1:
     st.subheader("📊 Rekap Absensi Bulanan (Sesuai Format Gambar Excel)")
@@ -130,22 +130,17 @@ with tab1:
             "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
-    # Buat Data Frame Siswa
     if "df_siswa" in st.session_state and not st.session_state[
         "df_siswa"
     ].empty:
         df_base = st.session_state["df_siswa"].copy()
     else:
-        # Default data contoh jika belum upload file
         default_data = [
             ("1", "ABANG MUSHAVIR EDO", "L", "148355770"),
             ("2", "AHMAD YANI", "L", "3143662047"),
             ("3", "AL JAMI", "L", "3137752600"),
             ("4", "AYU NINGSIH", "P", "3139019097"),
             ("5", "EPRI SASKIA", "P", "3131994928"),
-            ("6", "EVA DWI AGVENESA", "P", "3134410167"),
-            ("7", "FAKHRY LIANDRA WIJAYA", "L", "0144474494"),
-            ("8", "FATIRTA LAJESON", "L", "3133814641"),
         ]
         df_base = pd.DataFrame(
             default_data, columns=["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]
@@ -161,16 +156,10 @@ with tab1:
         df_init["A"] = 0
         st.session_state[session_key_rekap] = df_init
 
-    # Fungsi Hitung Rekapitulasi Bulanan Lengkap Sesuai Format
     def hitung_rekap_bulanan(df, hbe_val):
         df_calc = df.copy()
-
-        jml_absen_list = []
-        jml_hadir_list = []
-        pct_s_list = []
-        pct_i_list = []
-        pct_a_list = []
-        pct_hadir_list = []
+        jml_absen_list, jml_hadir_list = [], []
+        pct_s_list, pct_i_list, pct_a_list, pct_hadir_list = [], [], [], []
 
         for _, row in df_calc.iterrows():
             s = int(row["S"]) if str(row["S"]).isdigit() else 0
@@ -204,7 +193,6 @@ with tab1:
 
         return df_calc
 
-    # Editor Tabel Streamlit
     df_rekap_edited = st.data_editor(
         st.session_state[session_key_rekap],
         key=f"editor_{session_key_rekap}",
@@ -224,11 +212,6 @@ with tab1:
 
     df_final_rekap = hitung_rekap_bulanan(df_rekap_edited, hbe_input)
 
-    # Tampilkan Ringkasan Kalkulasi Tabel
-    st.write("### Preview Rekapitulasi Terhitung:")
-    st.dataframe(df_final_rekap, use_container_width=True, hide_index=True)
-
-    # Function Generate HTML/Excel persis format gambar
     def generate_excel_html(df_data, bulan, tahun, hbe):
         tot_l = len(
             df_data[
@@ -330,13 +313,12 @@ with tab1:
         """
         return html.encode("utf-8")
 
-    # Tombol Download Rekap Excel
     excel_bytes = generate_excel_html(
         df_final_rekap, bln_rekap, thn_rekap, hbe_input
     )
 
     st.download_button(
-        label="💾 UNDUH FORMAT REKAPITULASI BULANAN (EXACT PERSIS SESUAI GAMBAR EXCEL)",
+        label="💾 UNDUH FORMAT REKAPITULASI BULANAN (EXACT PERSIS EXCEL)",
         data=excel_bytes,
         file_name=f"Rekapitulasi_Bulanan_{nama_bulan[bln_rekap-1]}_{thn_rekap}.xls",
         mime="application/vnd.ms-excel",
@@ -348,12 +330,8 @@ with tab1:
 # TAB 2: PERSENTASE KEHADIRAN PER HARI
 # ------------------------------------------
 with tab2:
-    st.subheader(
-        "📅 Persentase Kehadiran Per Hari (Format Persis Gambar Upload)"
-    )
-    st.caption(
-        "Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa untuk menandai hari libur."
-    )
+    st.subheader("📅 Persentase Kehadiran Per Hari")
+    st.caption("Isi nilai S, I, A atau tulis 'MINGGU' pada kolom Jumlah Siswa.")
 
     col1, col2, _ = st.columns([2, 2, 4])
     with col1:
@@ -437,18 +415,6 @@ with tab2:
         key=f"editor_{session_key}",
         num_rows="dynamic",
         use_container_width=True,
-        column_config={
-            "TGL": st.column_config.NumberColumn("↑ TGL"),
-            "Jumlah Siswa": st.column_config.TextColumn("Jumlah Siswa"),
-            "S": st.column_config.NumberColumn("S", min_value=0),
-            "I": st.column_config.NumberColumn("I", min_value=0),
-            "A": st.column_config.NumberColumn("A", min_value=0),
-            "Jumlah": st.column_config.NumberColumn("Jumlah", disabled=True),
-            "Hadir %": st.column_config.TextColumn("Hadir %", disabled=True),
-            "Tidak hadir %": st.column_config.TextColumn(
-                "Tidak hadir %", disabled=True
-            ),
-        },
         hide_index=True,
     )
 
@@ -473,7 +439,7 @@ with tab2:
 
 
 # ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA (PARSER KOLOM & CLEANING)
+# TAB 3: UPLOAD DATA SISWA
 # ------------------------------------------
 with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
@@ -525,19 +491,103 @@ with tab3:
 
 
 # ------------------------------------------
-# TAB 4: MUTASI SISWA
+# TAB 4: MUTASI SISWA (EDITABLE, KETIK, TAMBAH, & UNDUH EXCEL)
 # ------------------------------------------
 with tab4:
-    st.subheader("🔄 Mutasi Siswa")
-    st.caption("Pencatatan data siswa masuk / keluar.")
-
-    data_mutasi = {
-        "No": [1],
-        "Tanggal": ["2025-09-10"],
-        "Nama Siswa": ["Rian Hidayat"],
-        "Jenis Mutasi": ["Masuk"],
-        "Keterangan": ["Pindahan dari SMPN 2"],
-    }
-    st.dataframe(
-        pd.DataFrame(data_mutasi), use_container_width=True, hide_index=True
+    st.subheader("🔄 Data Mutasi Siswa (Masuk / Keluar)")
+    st.caption(
+        "Ketik/edit data mutasi langsung pada tabel, tambah baris baru, lalu unduh hasilnya."
     )
+
+    if "df_mutasi" not in st.session_state:
+        default_mutasi = [
+            {
+                "NO": "1",
+                "TANGGAL": "2025-09-10",
+                "NIS / NISN": "0148355770",
+                "NAMA SISWA": "RIAN HIDAYAT",
+                "L/P": "L",
+                "JENIS MUTASI": "MASUK",
+                "ASAL / TUJUAN SEKOLAH": "SMP NEGERI 2 NANGA MAHAP",
+                "KETERANGAN": "PINDAHAN ORANG TUA",
+            }
+        ]
+        st.session_state["df_mutasi"] = pd.DataFrame(default_mutasi)
+
+    # Form Tambah Data Mutasi Baru
+    with st.expander("➕ Form Tambah Data Mutasi Baru"):
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1:
+            m_tgl = st.date_input("Tanggal Mutasi", value=datetime.now())
+            m_nis = st.text_input("NIS / NISN", value="")
+            m_nama = st.text_input("Nama Siswa", value="")
+        with col_m2:
+            m_lp = st.selectbox("L/P", ["L", "P"])
+            m_jenis = st.selectbox("Jenis Mutasi", ["MASUK", "KELUAR"])
+            m_sekolah = st.text_input("Asal / Tujuan Sekolah", value="")
+        with col_m3:
+            m_ket = st.text_area("Keterangan Alasan", value="")
+            st.write("")
+            if st.button("➕ Tambahkan Data Mutasi"):
+                new_no = str(len(st.session_state["df_mutasi"]) + 1)
+                row_baru = pd.DataFrame(
+                    [
+                        {
+                            "NO": new_no,
+                            "TANGGAL": str(m_tgl),
+                            "NIS / NISN": m_nis,
+                            "NAMA SISWA": m_nama,
+                            "L/P": m_lp,
+                            "JENIS MUTASI": m_jenis,
+                            "ASAL / TUJUAN SEKOLAH": m_sekolah,
+                            "KETERANGAN": m_ket,
+                        }
+                    ]
+                )
+                st.session_state["df_mutasi"] = pd.concat(
+                    [st.session_state["df_mutasi"], row_baru],
+                    ignore_index=True,
+                )
+                st.success("Data Mutasi Berhasil Ditambahkan!")
+                st.rerun()
+
+    # Data Editor Interaktif (Bisa Diedit/Diketil Langsung di Tabel)
+    df_mutasi_edited = st.data_editor(
+        st.session_state["df_mutasi"],
+        key="editor_mutasi",
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "NO": st.column_config.TextColumn("NO"),
+            "TANGGAL": st.column_config.TextColumn("TANGGAL"),
+            "NIS / NISN": st.column_config.TextColumn("NIS / NISN"),
+            "NAMA SISWA": st.column_config.TextColumn("NAMA SISWA"),
+            "L/P": st.column_config.SelectboxColumn("L/P", options=["L", "P"]),
+            "JENIS MUTASI": st.column_config.SelectboxColumn(
+                "JENIS MUTASI", options=["MASUK", "KELUAR"]
+            ),
+            "ASAL / TUJUAN SEKOLAH": st.column_config.TextColumn(
+                "ASAL / TUJUAN SEKOLAH"
+            ),
+            "KETERANGAN": st.column_config.TextColumn("KETERANGAN"),
+        },
+        hide_index=True,
+    )
+
+    col_btn_m1, col_btn_m2 = st.columns([1, 1.5])
+    with col_btn_m1:
+        if st.button("💾 Simpan Perubahan Mutasi", key="save_mutasi"):
+            st.session_state["df_mutasi"] = df_mutasi_edited
+            st.success("✅ Perubahan data mutasi berhasil disimpan!")
+            st.rerun()
+
+    with col_btn_m2:
+        # Generate Unduhan Excel Rekap Mutasi
+        csv_mutasi = df_mutasi_edited.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="💾 UNDUH REKAP DATA MUTASI SISWA (EXCEL/CSV)",
+            data=csv_mutasi,
+            file_name="Rekap_Mutasi_Siswa_IX_C.csv",
+            mime="text/csv",
+            key="btn_download_mutasi",
+        )
