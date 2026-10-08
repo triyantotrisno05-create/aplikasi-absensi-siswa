@@ -4,6 +4,7 @@ import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from datetime import datetime
 
 st.set_page_config(page_title="Sistem Absensi & Mutasi Siswa", layout="wide")
 
@@ -15,10 +16,16 @@ st.sidebar.header("🏫 Data Sekolah & Kelas")
 nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SDN / SMPN / SMAN Negeri")
 kelas = st.sidebar.text_input("Kelas", "Kelas 5A")
 bulan_tahun = st.sidebar.text_input("Bulan / Periode", "Oktober 2026")
+tempat_cetak = st.sidebar.text_input("Kota / Tempat Laporan", "Nanga Mahap")
+tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", datetime.today())
 wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Guru Pembimbing, S.Pd.")
 
-# Helper Function: Styling Excel
-def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama, start_data_row=6):
+# Helper Function: Formatting Tanggal Indonesia
+bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
+
+# Helper Function: Styling Excel & TTD
+def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama, tgl_str, start_data_row=6):
     title_font = Font(name="Arial", size=11, bold=True)
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
@@ -29,12 +36,10 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
         bottom=Side(style='thin', color='D9D9D9')
     )
 
-    # Header Baris Atas
     ws.cell(row=1, column=1, value=title_1).font = title_font
     ws.cell(row=2, column=1, value=title_2).font = title_font
     ws.cell(row=3, column=1, value=title_3).font = title_font
 
-    # Style Header Tabel
     for col_num in range(1, len(headers) + 1):
         cell = ws.cell(row=start_data_row - 1, column=col_num)
         cell.fill = header_fill
@@ -42,7 +47,6 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     last_row = ws.max_row
-    # Border & Alignment Isi Tabel
     for r in range(start_data_row - 1, last_row + 1):
         for c in range(1, len(headers) + 1):
             cell = ws.cell(row=r, column=c)
@@ -50,23 +54,22 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
             if r >= start_data_row and c in [1, 2, 4, 5, 6, 7, 8, 9, 10, 11]:
                 cell.alignment = Alignment(horizontal="center")
 
-    # Baris Total (Jika ada)
     for c in range(1, len(headers) + 1):
         cell = ws.cell(row=last_row, column=c)
         if "JUMLAH" in str(ws.cell(row=last_row, column=1).value or "").upper():
             cell.font = Font(name="Arial", size=10, bold=True)
             cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
-    # Tanda Tangan
+    # Tanda Tangan dengan Tanggal Cetak Laporan
     ws.append([])
     ws.append([])
-    ttd_col = max(1, len(headers) - 2)
+    ttd_col = max(1, len(headers) - 3)
+    ws.cell(row=ws.max_row + 1, column=ttd_col, value=tgl_str)
     ws.cell(row=ws.max_row + 1, column=ttd_col, value="Wali Kelas,")
     ws.append([])
     ws.append([])
     ws.cell(row=ws.max_row + 1, column=ttd_col, value=f"({wali_kelas_nama})").font = Font(bold=True)
 
-    # Auto Width Kolom
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = get_column_letter(col[0].column)
@@ -111,7 +114,6 @@ with tab1:
             else:
                 df_upload = pd.read_excel(uploaded_file)
             
-            # Memastikan Kolom Sesuai Format
             required_cols = ["No", "Nomor Induk / NISN", "Nama Siswa", "Jenis Kelamin", "HBE", "Sakit", "Izin", "Alpa"]
             for col in required_cols:
                 if col not in df_upload.columns:
@@ -153,9 +155,9 @@ with tab1:
     df_calc["Jumlah Hadir"] = df_calc["Jumlah Hadir"].apply(lambda x: max(0, x))
     
     # Persentase Kehadiran
-    df_calc["% Kehadiran"] = (df_calc["Jumlah Hadir"] / df_calc["HBE"] * 100).round(1)
+    df_calc["% Kehadiran"] = (df_calc["Jumlah Hadir"] / df_calc["HBE"])
     df_calc_display = df_calc.copy()
-    df_calc_display["% Kehadiran"] = df_calc_display["% Kehadiran"].apply(lambda x: f"{x}%")
+    df_calc_display["% Kehadiran"] = (df_calc_display["% Kehadiran"] * 100).round(1).apply(lambda x: f"{x}%")
 
     st.markdown("### 📈 Tabel Hasil Rekapitulasi Otomatis")
     st.dataframe(df_calc_display, use_container_width=True)
@@ -175,7 +177,9 @@ with tab1:
         ws.append([])
         ws.append(headers)
 
-        for _, row in df_calc.iterrows():
+        start_data_row = 6
+        for idx, row in df_calc.iterrows():
+            curr_row = start_data_row + idx
             ws.append([
                 row.get("No", ""),
                 row.get("Nomor Induk / NISN", ""),
@@ -187,13 +191,15 @@ with tab1:
                 row.get("Alpa", 0),
                 row.get("Jumlah Ketidakhadiran", 0),
                 row.get("Jumlah Hadir", 0),
-                f"{row.get('% Kehadiran', 0)}%"
+                f"=(J{curr_row}/E{curr_row})"
             ])
+            # Format cell sebagai persen
+            ws.cell(row=curr_row, column=11).number_format = '0.0%'
 
         last_row = ws.max_row
-        start_data_row = 6
+        total_row = last_row + 1
         
-        # Rumus Excel untuk Baris Total
+        # Rumus Excel Perbaikan Tanpa #DIV/0!
         ws.append([
             "JUMLAH TOTAL", "", "", "",
             f"=SUM(E{start_data_row}:E{last_row})",
@@ -202,17 +208,19 @@ with tab1:
             f"=SUM(H{start_data_row}:H{last_row})",
             f"=SUM(I{start_data_row}:I{last_row})",
             f"=SUM(J{start_data_row}:J{last_row})",
-            f"=AVERAGE(K{start_data_row}:K{last_row})"
+            f"=J{total_row}/E{total_row}"
         ])
+        ws.cell(row=total_row, column=11).number_format = '0.0%'
 
-        ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=4)
+        ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=4)
 
         apply_excel_styling(
             ws, headers,
             nama_sekolah.upper(),
             f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}",
             f"PERIODE: {bulan_tahun.upper()}",
-            wali_kelas
+            wali_kelas,
+            tgl_cetak_str
         )
 
         wb.save(output)
@@ -255,7 +263,6 @@ with tab2:
         key="editor_harian"
     )
 
-    # Ringkasan Harian
     total_siswa = len(edited_harian)
     hadir_count = (edited_harian["Status Kehadiran"] == "Hadir").sum()
     sakit_count = (edited_harian["Status Kehadiran"] == "Sakit").sum()
@@ -270,7 +277,6 @@ with tab2:
     col_h4.metric("Alpa", f"{alpa_count} Siswa")
     col_h5.metric("% Kehadiran Hari Ini", f"{persen_hadir:.1f}%")
 
-    # Export Excel Harian
     def generate_excel_harian():
         output = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -294,7 +300,6 @@ with tab2:
                 row.get("Keterangan", "-")
             ])
 
-        # Tambahkan Ringkasan Otomatis di Bawah
         ws.append([])
         ws.append(["RINGKASAN KEHADIRAN HARIAN"])
         ws.append(["Total Siswa", total_siswa])
@@ -309,7 +314,8 @@ with tab2:
             nama_sekolah.upper(),
             f"LAPORAN KEHADIRAN HARIAN SISWA - {kelas.upper()}",
             f"TANGGAL: {tgl_pilih.strftime('%d-%m-%Y')}",
-            wali_kelas
+            wali_kelas,
+            tgl_cetak_str
         )
 
         wb.save(output)
@@ -358,7 +364,6 @@ with tab3:
     col_m1.metric("Total Siswa Masuk", f"{m_masuk} Orang")
     col_m2.metric("Total Siswa Keluar", f"{m_keluar} Orang")
 
-    # Export Excel Mutasi
     def generate_excel_mutasi():
         output = io.BytesIO()
         wb = openpyxl.Workbook()
@@ -385,7 +390,6 @@ with tab3:
                 row.get("Alasan Mutasi", "")
             ])
 
-        last_row = ws.max_row
         ws.append([
             "TOTAL SISWA MASUK", "", "", "", "", f"{m_masuk} Orang", "", ""
         ])
@@ -398,7 +402,8 @@ with tab3:
             nama_sekolah.upper(),
             f"LAPORAN MUTASI SISWA - {kelas.upper()}",
             f"PERIODE: {bulan_tahun.upper()}",
-            wali_kelas
+            wali_kelas,
+            tgl_cetak_str
         )
 
         wb.save(output)
