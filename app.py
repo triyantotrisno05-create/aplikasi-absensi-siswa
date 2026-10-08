@@ -228,3 +228,232 @@ with tab1:
                 row.get("Jenis Kelamin", ""),
                 row.get("HBE", 24),
                 row.get("Sakit", 0),
+                row.get("Izin", 0),
+                row.get("Alpa", 0),
+                row.get("Jumlah Ketidakhadiran", 0),
+                row.get("Jumlah Hadir", 0),
+                f"=(J{curr_row}/E{curr_row})"
+            ])
+            ws.cell(row=curr_row, column=11).number_format = '0.0%'
+
+        last_row = ws.max_row
+        total_row = last_row + 1
+        
+        ws.append([
+            "JUMLAH TOTAL", "", "", "",
+            f"=SUM(E{start_data_row}:E{last_row})",
+            f"=SUM(F{start_data_row}:F{last_row})",
+            f"=SUM(G{start_data_row}:G{last_row})",
+            f"=SUM(H{start_data_row}:H{last_row})",
+            f"=SUM(I{start_data_row}:I{last_row})",
+            f"=SUM(J{start_data_row}:J{last_row})",
+            f"=J{total_row}/E{total_row}"
+        ])
+        ws.cell(row=total_row, column=11).number_format = '0.0%'
+
+        ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=4)
+
+        apply_excel_styling(
+            ws, headers,
+            nama_sekolah.upper(),
+            f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}",
+            f"PERIODE: {bulan_tahun.upper()}",
+            wali_kelas,
+            tgl_cetak_str,
+            logo_file=uploaded_logo
+        )
+
+        wb.save(output)
+        return output.getvalue()
+
+    st.download_button(
+        label="📥 Download Excel Rekap Bulanan",
+        data=generate_excel_rekap_bulanan(),
+        file_name=f"Rekap_Absensi_Bulanan_{kelas}_{bulan_tahun}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ==========================================
+# TAB 2: KEHADIRAN SISWA PER HARI
+# ==========================================
+with tab2:
+    st.subheader("📅 Rekap Kehadiran Harian Siswa Per Tanggal")
+    tgl_pilih = st.date_input("Pilih Tanggal Absensi", key="tgl_harian")
+
+    if "data_harian" not in st.session_state:
+        st.session_state.data_harian = pd.DataFrame({
+            "No": [1, 2, 3],
+            "Nomor Induk": ["1001", "1002", "1003"],
+            "Nama Siswa": ["Ahmad Fauzi", "Budi Santoso", "Citra Dewi"],
+            "Status Kehadiran": ["Hadir", "Hadir", "Izin"],
+            "Keterangan": ["-", "-", "Acara Keluarga"]
+        })
+
+    edited_harian = st.data_editor(
+        st.session_state.data_harian,
+        column_config={
+            "Status Kehadiran": st.column_config.SelectboxColumn(
+                "Status Kehadiran",
+                options=["Hadir", "Sakit", "Izin", "Alpa"],
+                required=True
+            )
+        },
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_harian"
+    )
+
+    total_siswa = len(edited_harian)
+    hadir_count = (edited_harian["Status Kehadiran"] == "Hadir").sum()
+    sakit_count = (edited_harian["Status Kehadiran"] == "Sakit").sum()
+    izin_count = (edited_harian["Status Kehadiran"] == "Izin").sum()
+    alpa_count = (edited_harian["Status Kehadiran"] == "Alpa").sum()
+    persen_hadir = (hadir_count / total_siswa * 100) if total_siswa > 0 else 0
+
+    col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns(5)
+    col_h1.metric("Hadir", f"{hadir_count} Siswa")
+    col_h2.metric("Sakit", f"{sakit_count} Siswa")
+    col_h3.metric("Izin", f"{izin_count} Siswa")
+    col_h4.metric("Alpa", f"{alpa_count} Siswa")
+    col_h5.metric("% Kehadiran Hari Ini", f"{persen_hadir:.1f}%")
+
+    def generate_excel_harian():
+        output = io.BytesIO()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Kehadiran Harian"
+
+        headers = ["No", "Nomor Induk", "Nama Siswa", "Status Kehadiran", "Keterangan"]
+        
+        ws.append([nama_sekolah.upper()])
+        ws.append([f"LAPORAN KEHADIRAN HARIAN SISWA - {kelas.upper()}"])
+        ws.append([f"TANGGAL: {tgl_pilih.strftime('%d-%m-%Y')}"])
+        ws.append([])
+        ws.append(headers)
+
+        for _, row in edited_harian.iterrows():
+            ws.append([
+                row.get("No", ""),
+                row.get("Nomor Induk", ""),
+                row.get("Nama Siswa", ""),
+                row.get("Status Kehadiran", ""),
+                row.get("Keterangan", "-")
+            ])
+
+        ws.append([])
+        ws.append(["RINGKASAN KEHADIRAN HARIAN"])
+        ws.append(["Total Siswa", total_siswa])
+        ws.append(["Total Hadir", hadir_count])
+        ws.append(["Total Sakit", sakit_count])
+        ws.append(["Total Izin", izin_count])
+        ws.append(["Total Alpa", alpa_count])
+        ws.append(["Persentase Kehadiran", f"{persen_hadir:.1f}%"])
+
+        apply_excel_styling(
+            ws, headers,
+            nama_sekolah.upper(),
+            f"LAPORAN KEHADIRAN HARIAN SISWA - {kelas.upper()}",
+            f"TANGGAL: {tgl_pilih.strftime('%d-%m-%Y')}",
+            wali_kelas,
+            tgl_cetak_str,
+            logo_file=uploaded_logo
+        )
+
+        wb.save(output)
+        return output.getvalue()
+
+    st.download_button(
+        label="📥 Download Excel Kehadiran Harian",
+        data=generate_excel_harian(),
+        file_name=f"Kehadiran_Harian_{kelas}_{tgl_pilih.strftime('%d-%m-%Y')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ==========================================
+# TAB 3: MUTASI SISWA (MASUK / KELUAR)
+# ==========================================
+with tab3:
+    st.subheader("🔄 Catatan Mutasi Siswa (Masuk / Keluar)")
+
+    if "data_mutasi" not in st.session_state:
+        st.session_state.data_mutasi = pd.DataFrame({
+            "No": [1],
+            "Tanggal Mutasi": ["2026-10-01"],
+            "Nomor Induk / NISN": ["1004"],
+            "Nama Siswa": ["Eko Prasetyo"],
+            "Jenis Kelamin": ["L"],
+            "Jenis Mutasi": ["Masuk"],
+            "Asal / Tujuan Sekolah": ["SMP Negeri 2"],
+            "Alasan Mutasi": ["Pindah Tugas Orang Tua"]
+        })
+
+    edited_mutasi = st.data_editor(
+        st.session_state.data_mutasi,
+        column_config={
+            "Jenis Kelamin": st.column_config.SelectboxColumn("Jenis Kelamin", options=["L", "P"], required=True),
+            "Jenis Mutasi": st.column_config.SelectboxColumn("Jenis Mutasi", options=["Masuk", "Keluar"], required=True)
+        },
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_mutasi"
+    )
+
+    m_masuk = (edited_mutasi["Jenis Mutasi"] == "Masuk").sum()
+    m_keluar = (edited_mutasi["Jenis Mutasi"] == "Keluar").sum()
+    
+    col_m1, col_m2 = st.columns(2)
+    col_m1.metric("Total Siswa Masuk", f"{m_masuk} Orang")
+    col_m2.metric("Total Siswa Keluar", f"{m_keluar} Orang")
+
+    def generate_excel_mutasi():
+        output = io.BytesIO()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Mutasi Siswa"
+
+        headers = ["No", "Tanggal Mutasi", "Nomor Induk", "Nama Siswa", "JK", "Jenis Mutasi", "Asal / Tujuan Sekolah", "Alasan Mutasi"]
+        
+        ws.append([nama_sekolah.upper()])
+        ws.append([f"LAPORAN MUTASI SISWA (MASUK / KELUAR) - {kelas.upper()}"])
+        ws.append([f"PERIODE: {bulan_tahun.upper()}"])
+        ws.append([])
+        ws.append(headers)
+
+        for _, row in edited_mutasi.iterrows():
+            ws.append([
+                row.get("No", ""),
+                str(row.get("Tanggal Mutasi", "")),
+                row.get("Nomor Induk / NISN", ""),
+                row.get("Nama Siswa", ""),
+                row.get("Jenis Kelamin", ""),
+                row.get("Jenis Mutasi", ""),
+                row.get("Asal / Tujuan Sekolah", ""),
+                row.get("Alasan Mutasi", "")
+            ])
+
+        ws.append([
+            "TOTAL SISWA MASUK", "", "", "", "", f"{m_masuk} Orang", "", ""
+        ])
+        ws.append([
+            "TOTAL SISWA KELUAR", "", "", "", "", f"{m_keluar} Orang", "", ""
+        ])
+
+        apply_excel_styling(
+            ws, headers,
+            nama_sekolah.upper(),
+            f"LAPORAN MUTASI SISWA - {kelas.upper()}",
+            f"PERIODE: {bulan_tahun.upper()}",
+            wali_kelas,
+            tgl_cetak_str,
+            logo_file=uploaded_logo
+        )
+
+        wb.save(output)
+        return output.getvalue()
+
+    st.download_button(
+        label="📥 Download Excel Mutasi Siswa",
+        data=generate_excel_mutasi(),
+        file_name=f"Laporan_Mutasi_Siswa_{kelas}_{bulan_tahun}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
