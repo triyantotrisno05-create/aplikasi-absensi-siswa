@@ -154,20 +154,61 @@ with tab1:
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.csv'):
-                df_upload = pd.read_csv(uploaded_file)
+                try:
+                    df_upload = pd.read_csv(uploaded_file, sep=None, engine='python')
+                except Exception:
+                    uploaded_file.seek(0)
+                    df_upload = pd.read_csv(uploaded_file)
             else:
                 df_upload = pd.read_excel(uploaded_file)
             
+            # Normalisasi nama kolom agar tidak sensitif huruf besar/kecil & spasi
+            column_map = {}
+            for col in df_upload.columns:
+                c_clean = str(col).strip().upper()
+                if c_clean in ["NO", "NO.", "NOMOR"]:
+                    column_map[col] = "No"
+                elif "NIS" in c_clean or "INDUK" in c_clean or "NISN" in c_clean:
+                    column_map[col] = "Nomor Induk / NISN"
+                elif "NAMA" in c_clean:
+                    column_map[col] = "Nama Siswa"
+                elif c_clean in ["JK", "JENIS KELAMIN", "GENDER", "L/P", "SEX"]:
+                    column_map[col] = "Jenis Kelamin"
+                elif "HBE" in c_clean or "EFEKTIF" in c_clean:
+                    column_map[col] = "HBE"
+                elif "SAKIT" in c_clean or c_clean == "S":
+                    column_map[col] = "Sakit"
+                elif "IZIN" in c_clean or "IJIN" in c_clean or c_clean == "I":
+                    column_map[col] = "Izin"
+                elif "ALPA" in c_clean or "ALPHA" in c_clean or "ABSEN" in c_clean or c_clean == "A":
+                    column_map[col] = "Alpa"
+
+            df_upload = df_upload.rename(columns=column_map)
+
+            # Buat kolom otomatis jika tidak ada di CSV
+            if "No" not in df_upload.columns:
+                df_upload["No"] = list(range(1, len(df_upload) + 1))
+            if "Nomor Induk / NISN" not in df_upload.columns:
+                df_upload["Nomor Induk / NISN"] = "-"
+            if "Nama Siswa" not in df_upload.columns:
+                # Ambil kolom pertama sebagai nama jika tidak terdeteksi
+                df_upload["Nama Siswa"] = df_upload.iloc[:, 0]
+            if "Jenis Kelamin" not in df_upload.columns:
+                df_upload["Jenis Kelamin"] = "L"
+            if "HBE" not in df_upload.columns:
+                df_upload["HBE"] = 24
+            if "Sakit" not in df_upload.columns:
+                df_upload["Sakit"] = 0
+            if "Izin" not in df_upload.columns:
+                df_upload["Izin"] = 0
+            if "Alpa" not in df_upload.columns:
+                df_upload["Alpa"] = 0
+
+            # Format kolom Jenis Kelamin
+            df_upload["Jenis Kelamin"] = df_upload["Jenis Kelamin"].astype(str).str.strip().str.upper()
+            df_upload["Jenis Kelamin"] = df_upload["Jenis Kelamin"].apply(lambda x: "P" if x in ["P", "PEREMPUAN", "FEMALE"] else "L")
+
             required_cols = ["No", "Nomor Induk / NISN", "Nama Siswa", "Jenis Kelamin", "HBE", "Sakit", "Izin", "Alpa"]
-            for col in required_cols:
-                if col not in df_upload.columns:
-                    if col in ["Sakit", "Izin", "Alpa"]:
-                        df_upload[col] = 0
-                    elif col == "HBE":
-                        df_upload[col] = 24
-                    elif col == "Jenis Kelamin":
-                        df_upload[col] = "L"
-            
             st.session_state.data_bulanan = df_upload[required_cols]
             st.success("✅ Data siswa berhasil diunggah!")
         except Exception as e:
@@ -428,32 +469,4 @@ with tab3:
                 row.get("Jenis Kelamin", ""),
                 row.get("Jenis Mutasi", ""),
                 row.get("Asal / Tujuan Sekolah", ""),
-                row.get("Alasan Mutasi", "")
-            ])
-
-        ws.append([
-            "TOTAL SISWA MASUK", "", "", "", "", f"{m_masuk} Orang", "", ""
-        ])
-        ws.append([
-            "TOTAL SISWA KELUAR", "", "", "", "", f"{m_keluar} Orang", "", ""
-        ])
-
-        apply_excel_styling(
-            ws, headers,
-            nama_sekolah.upper(),
-            f"LAPORAN MUTASI SISWA - {kelas.upper()}",
-            f"PERIODE: {bulan_tahun.upper()}",
-            wali_kelas,
-            tgl_cetak_str,
-            logo_file=uploaded_logo
-        )
-
-        wb.save(output)
-        return output.getvalue()
-
-    st.download_button(
-        label="📥 Download Excel Mutasi Siswa",
-        data=generate_excel_mutasi(),
-        file_name=f"Laporan_Mutasi_Siswa_{kelas}_{bulan_tahun}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+                row.get("Alasan
