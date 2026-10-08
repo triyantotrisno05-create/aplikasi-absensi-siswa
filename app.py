@@ -491,103 +491,166 @@ with tab3:
 
 
 # ------------------------------------------
-# TAB 4: MUTASI SISWA (EDITABLE, KETIK, TAMBAH, & UNDUH EXCEL)
+# TAB 4: MUTASI SISWA (EXACT PERSIS SESUAI FOTO)
 # ------------------------------------------
 with tab4:
-    st.subheader("🔄 Data Mutasi Siswa (Masuk / Keluar)")
+    st.subheader("🔄 Data Mutasi Siswa (Sesuai Format Foto Gambar)")
     st.caption(
-        "Ketik/edit data mutasi langsung pada tabel, tambah baris baru, lalu unduh hasilnya."
+        "Isi/edit tabel mutasi di bawah, lalu klik unduh untuk mendapatkan file Excel persis sesuai gambar."
     )
 
-    if "df_mutasi" not in st.session_state:
-        default_mutasi = [
-            {
-                "NO": "1",
-                "TANGGAL": "2025-09-10",
-                "NIS / NISN": "0148355770",
-                "NAMA SISWA": "RIAN HIDAYAT",
-                "L/P": "L",
-                "JENIS MUTASI": "MASUK",
-                "ASAL / TUJUAN SEKOLAH": "SMP NEGERI 2 NANGA MAHAP",
-                "KETERANGAN": "PINDAHAN ORANG TUA",
-            }
-        ]
-        st.session_state["df_mutasi"] = pd.DataFrame(default_mutasi)
+    col_m_b, col_m_t = st.columns(2)
+    with col_m_b:
+        bln_mutasi = st.selectbox(
+            "Pilih Bulan Mutasi",
+            options=list(range(1, 13)),
+            format_func=lambda x: nama_bulan[x - 1],
+            index=3,  # Default April
+            key="bln_tab4",
+        )
+    with col_m_t:
+        thn_mutasi = st.number_input(
+            "Pilih Tahun Mutasi",
+            value=2026,
+            key="thn_tab4",
+        )
 
-    # Form Tambah Data Mutasi Baru
-    with st.expander("➕ Form Tambah Data Mutasi Baru"):
-        col_m1, col_m2, col_m3 = st.columns(3)
-        with col_m1:
-            m_tgl = st.date_input("Tanggal Mutasi", value=datetime.now())
-            m_nis = st.text_input("NIS / NISN", value="")
-            m_nama = st.text_input("Nama Siswa", value="")
-        with col_m2:
-            m_lp = st.selectbox("L/P", ["L", "P"])
-            m_jenis = st.selectbox("Jenis Mutasi", ["MASUK", "KELUAR"])
-            m_sekolah = st.text_input("Asal / Tujuan Sekolah", value="")
-        with col_m3:
-            m_ket = st.text_area("Keterangan Alasan", value="")
-            st.write("")
-            if st.button("➕ Tambahkan Data Mutasi"):
-                new_no = str(len(st.session_state["df_mutasi"]) + 1)
-                row_baru = pd.DataFrame(
-                    [
-                        {
-                            "NO": new_no,
-                            "TANGGAL": str(m_tgl),
-                            "NIS / NISN": m_nis,
-                            "NAMA SISWA": m_nama,
-                            "L/P": m_lp,
-                            "JENIS MUTASI": m_jenis,
-                            "ASAL / TUJUAN SEKOLAH": m_sekolah,
-                            "KETERANGAN": m_ket,
-                        }
-                    ]
-                )
-                st.session_state["df_mutasi"] = pd.concat(
-                    [st.session_state["df_mutasi"], row_baru],
-                    ignore_index=True,
-                )
-                st.success("Data Mutasi Berhasil Ditambahkan!")
-                st.rerun()
+    # Inisialisasi Data Default sesuai Kolom Gambar (10 Baris Kosong/Isi)
+    if "df_mutasi_exact" not in st.session_state:
+        default_mutasi_data = []
+        for i in range(1, 11):
+            default_mutasi_data.append(
+                {
+                    "No": str(i),
+                    "Nama Siswa": "" if i > 1 else "RIAN HIDAYAT",
+                    "NIS / NISN": "" if i > 1 else "0148355770",
+                    "L/P": "" if i > 1 else "L",
+                    "Agama": "" if i > 1 else "Islam",
+                    "Umur": "" if i > 1 else "15",
+                    "Pekerjaan Orang Tua": "" if i > 1 else "Petani",
+                    "Tgl. Keluar": "",
+                    "Tgl. Masuk": "" if i > 1 else "2026-04-10",
+                }
+            )
+        st.session_state["df_mutasi_exact"] = pd.DataFrame(default_mutasi_data)
 
-    # Data Editor Interaktif (Bisa Diedit/Diketil Langsung di Tabel)
+    # Data Editor Interaktif dengan Kolom Sesuai Gambar
     df_mutasi_edited = st.data_editor(
-        st.session_state["df_mutasi"],
-        key="editor_mutasi",
+        st.session_state["df_mutasi_exact"],
+        key="editor_mutasi_exact",
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "NO": st.column_config.TextColumn("NO"),
-            "TANGGAL": st.column_config.TextColumn("TANGGAL"),
+            "No": st.column_config.TextColumn("No"),
+            "Nama Siswa": st.column_config.TextColumn("Nama Siswa"),
             "NIS / NISN": st.column_config.TextColumn("NIS / NISN"),
-            "NAMA SISWA": st.column_config.TextColumn("NAMA SISWA"),
-            "L/P": st.column_config.SelectboxColumn("L/P", options=["L", "P"]),
-            "JENIS MUTASI": st.column_config.SelectboxColumn(
-                "JENIS MUTASI", options=["MASUK", "KELUAR"]
+            "L/P": st.column_config.SelectboxColumn(
+                "L/P", options=["", "L", "P"]
             ),
-            "ASAL / TUJUAN SEKOLAH": st.column_config.TextColumn(
-                "ASAL / TUJUAN SEKOLAH"
+            "Agama": st.column_config.TextColumn("Agama"),
+            "Umur": st.column_config.TextColumn("Umur"),
+            "Pekerjaan Orang Tua": st.column_config.TextColumn(
+                "Pekerjaan Orang Tua"
             ),
-            "KETERANGAN": st.column_config.TextColumn("KETERANGAN"),
+            "Tgl. Keluar": st.column_config.TextColumn("Tgl. Keluar"),
+            "Tgl. Masuk": st.column_config.TextColumn("Tgl. Masuk"),
         },
         hide_index=True,
     )
 
-    col_btn_m1, col_btn_m2 = st.columns([1, 1.5])
-    with col_btn_m1:
-        if st.button("💾 Simpan Perubahan Mutasi", key="save_mutasi"):
-            st.session_state["df_mutasi"] = df_mutasi_edited
-            st.success("✅ Perubahan data mutasi berhasil disimpan!")
+    # Generator HTML Excel Persis Format Gambar
+    def generate_excel_mutasi_html(df_data, bulan, tahun):
+        html = f"""
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="utf-8"/>
+            <style>
+                body {{ font-family: 'Times New Roman', Times, serif; }}
+                table {{ border-collapse: collapse; width: 100%; }}
+                th, td {{ border: 1px solid black; padding: 5px; text-align: center; }}
+                .no-border {{ border: none !important; }}
+                .header-title {{ font-weight: bold; font-size: 14pt; text-align: center; }}
+            </style>
+        </head>
+        <body>
+            <div class="header-title">MUTASI SISWA</div>
+            <div class="header-title">SMP NEGERI 1 NANGA MAHAP</div>
+            <div class="header-title">TAHUN PELAJARAN 2025/2026</div>
+            <br/><br/>
+            <table class="no-border" style="width: auto; text-align: left;">
+                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Kelas</td><td class="no-border">: IX C</td></tr>
+                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Bulan</td><td class="no-border">: {nama_bulan[bulan-1]}</td></tr>
+            </table>
+            <br/>
+            <table>
+                <thead>
+                    <tr style="font-weight:bold;">
+                        <th style="width: 40px;">No</th>
+                        <th style="width: 200px;">Nama Siswa</th>
+                        <th style="width: 130px;">NIS / NISN</th>
+                        <th style="width: 50px;">L/P</th>
+                        <th style="width: 80px;">Agama</th>
+                        <th style="width: 60px;">Umur</th>
+                        <th style="width: 140px;">Pekerjaan Orang Tua</th>
+                        <th style="width: 100px;">Tgl. Keluar</th>
+                        <th style="width: 100px;">Tgl. Masuk</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for _, r in df_data.iterrows():
+            html += f"""
+                    <tr>
+                        <td>{r['No']}</td>
+                        <td align="left">{r['Nama Siswa']}</td>
+                        <td style="mso-number-format:'\@';">{r['NIS / NISN']}</td>
+                        <td>{r['L/P']}</td>
+                        <td>{r['Agama']}</td>
+                        <td>{r['Umur']}</td>
+                        <td>{r['Pekerjaan Orang Tua']}</td>
+                        <td>{r['Tgl. Keluar']}</td>
+                        <td>{r['Tgl. Masuk']}</td>
+                    </tr>
+            """
+
+        html += f"""
+                </tbody>
+            </table>
+            <br/><br/>
+            <table style="border:none; width:100%;">
+                <tr style="border:none;">
+                    <td style="border:none; width:60%;"></td>
+                    <td style="border:none; text-align:center;">
+                        Nanga Mahap, 30 {nama_bulan[bulan-1]} {tahun}<br/>
+                        Wali Kelas IX C<br/><br/><br/><br/>
+                        <b><u>Trivanto trisno, S.Pd</u></b><br/>
+                        NIP. 199305202024211000
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        """
+        return html.encode("utf-8")
+
+    col_m_btn1, col_m_btn2 = st.columns([1, 1.5])
+
+    with col_m_btn1:
+        if st.button("💾 Simpan Data Mutasi", key="btn_save_mutasi_exact"):
+            st.session_state["df_mutasi_exact"] = df_mutasi_edited
+            st.success("✅ Data mutasi berhasil disimpan!")
             st.rerun()
 
-    with col_btn_m2:
-        # Generate Unduhan Excel Rekap Mutasi
-        csv_mutasi = df_mutasi_edited.to_csv(index=False).encode("utf-8")
+    with col_m_btn2:
+        excel_mutasi_bytes = generate_excel_mutasi_html(
+            df_mutasi_edited, bln_mutasi, thn_mutasi
+        )
+
         st.download_button(
-            label="💾 UNDUH REKAP DATA MUTASI SISWA (EXCEL/CSV)",
-            data=csv_mutasi,
-            file_name="Rekap_Mutasi_Siswa_IX_C.csv",
-            mime="text/csv",
-            key="btn_download_mutasi",
+            label="💾 UNDUH MUTASI SISWA (PERSIS SESUAI FOTO EXCEL)",
+            data=excel_mutasi_bytes,
+            file_name=f"Mutasi_Siswa_{nama_bulan[bln_mutasi-1]}_{thn_mutasi}.xls",
+            mime="application/vnd.ms-excel",
+            key="btn_download_mutasi_exact",
         )
