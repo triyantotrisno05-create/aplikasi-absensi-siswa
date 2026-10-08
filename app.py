@@ -49,14 +49,12 @@ tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 
 
 # Helper Function: Styling Excel & Pengaturan Siap Cetak (Print Ready)
 def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama, tgl_str, logo_file=None, start_data_row=6):
-    # Font Style
     font_title = Font(name="Calibri", size=14, bold=True)
     font_subtitle = Font(name="Calibri", size=11, bold=True)
-    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    font_data = Font(name="Calibri", size=11)
-    font_bold = Font(name="Calibri", size=11, bold=True)
+    font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    font_data = Font(name="Calibri", size=10)
+    font_bold = Font(name="Calibri", size=10, bold=True)
 
-    # Fills & Borders
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     summary_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
     
@@ -67,7 +65,6 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
         bottom=Side(style='thin', color='BFBFBF')
     )
 
-    # Logo Sekolah jika ada
     if logo_file is not None:
         try:
             logo_file.seek(0)
@@ -78,7 +75,6 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
         except Exception:
             pass
 
-    # Header Judul Laporan (Merge Across Table)
     ws.row_dimensions[1].height = 22
     ws.row_dimensions[2].height = 20
     ws.row_dimensions[3].height = 20
@@ -87,16 +83,14 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
     ws.cell(row=2, column=2, value=title_2).font = font_subtitle
     ws.cell(row=3, column=2, value=title_3).font = font_subtitle
 
-    # Styling Table Header
     header_row_idx = start_data_row - 1
-    ws.row_dimensions[header_row_idx].height = 26
+    ws.row_dimensions[header_row_idx].height = 28
     for col_num in range(1, num_cols + 1):
         cell = ws.cell(row=header_row_idx, column=col_num)
         cell.fill = header_fill
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # Styling Data Cells
     last_row = ws.max_row
     for r in range(start_data_row, last_row + 1):
         ws.row_dimensions[r].height = 20
@@ -111,18 +105,16 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
             if is_summary_row:
                 cell.fill = summary_fill
 
-            # Format Alignment
-            if c == 1 or c == 4: # No & JK
+            if c == 1 or c == 4:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            elif c in [2, 3, 7, 8]: # Nama & Keterangan
+            elif c in [2, 3]:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
-            else: # Angka / Nilai
+            else:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Tanda Tangan Wali Kelas
     ws.append([])
     ws.append([])
-    ttd_col = max(1, num_cols - 2)
+    ttd_col = max(1, num_cols - 3)
     
     r_tgl = ws.max_row + 1
     r_jab = r_tgl + 1
@@ -140,7 +132,6 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
     cell_nama.font = font_bold
     cell_nama.alignment = Alignment(horizontal="center")
 
-    # Autofit Lebar Kolom
     for col in ws.columns:
         col_letter = get_column_letter(col[0].column)
         if col[0].column > num_cols:
@@ -152,18 +143,18 @@ def apply_excel_styling(ws, num_cols, title_1, title_2, title_3, wali_kelas_nama
                 continue
             if len(val_str) > max_len:
                 max_len = len(val_str)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
 
-    # --- PENGATURAN HALAMAN SIAP CETAK (PRINT SETUP) ---
+    # --- PENGATURAN HALAMAN SIAP CETAK ---
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE if num_cols > 7 else ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
-    ws.margin_left = 0.5
-    ws.margin_right = 0.5
-    ws.margin_top = 0.75
-    ws.margin_bottom = 0.75
+    ws.margin_left = 0.4
+    ws.margin_right = 0.4
+    ws.margin_top = 0.6
+    ws.margin_bottom = 0.6
 
 # Header Halaman Utama
 col_logo, col_header = st.columns([1, 6])
@@ -285,15 +276,22 @@ with tab1:
     for col in ["HBE", "Sakit", "Izin", "Alpa"]:
         df_calc[col] = pd.to_numeric(df_calc[col], errors="coerce").fillna(0).astype(int)
 
+    # Perhitungan Total & Persentase
+    df_calc["% Sakit"] = (df_calc["Sakit"] / df_calc["HBE"])
+    df_calc["% Izin"] = (df_calc["Izin"] / df_calc["HBE"])
+    df_calc["% Alpa"] = (df_calc["Alpa"] / df_calc["HBE"])
+
     df_calc["Jumlah Ketidakhadiran"] = df_calc["Sakit"] + df_calc["Izin"] + df_calc["Alpa"]
     df_calc["Jumlah Hadir"] = df_calc["HBE"] - df_calc["Jumlah Ketidakhadiran"]
     df_calc["Jumlah Hadir"] = df_calc["Jumlah Hadir"].apply(lambda x: max(0, x))
-    
     df_calc["% Kehadiran"] = (df_calc["Jumlah Hadir"] / df_calc["HBE"])
-    df_calc_display = df_calc.copy()
-    df_calc_display["% Kehadiran"] = (df_calc_display["% Kehadiran"] * 100).round(1).apply(lambda x: f"{x}%")
 
-    st.markdown("### 📈 Tabel Hasil Rekapitulasi Otomatis")
+    # Format Tampilan Web
+    df_calc_display = df_calc.copy()
+    for pct_col in ["% Sakit", "% Izin", "% Alpa", "% Kehadiran"]:
+        df_calc_display[pct_col] = (df_calc_display[pct_col] * 100).round(1).apply(lambda x: f"{x}%")
+
+    st.markdown("### 📈 Tabel Hasil Rekapitulasi Otomatis dengan Persentase")
     st.dataframe(df_calc_display, use_container_width=True)
 
     def generate_excel_rekap_bulanan():
@@ -302,7 +300,11 @@ with tab1:
         ws = wb.active
         ws.title = "Rekap Absensi Bulanan"
 
-        headers = ["No", "Nomor Induk / NISN", "Nama Siswa", "JK", "HBE", "Sakit", "Izin", "Alpa", "Jml Absen", "Jml Hadir", "% Kehadiran"]
+        headers = [
+            "No", "Nomor Induk / NISN", "Nama Siswa", "JK", "HBE", 
+            "Sakit", "% Sakit", "Izin", "% Izin", "Alpa", "% Alpa", 
+            "Jml Absen", "Jml Hadir", "% Kehadiran"
+        ]
         
         ws.append([nama_sekolah.upper()])
         ws.append([f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}"])
@@ -320,13 +322,20 @@ with tab1:
                 row.get("Jenis Kelamin", ""),
                 row.get("HBE", 24),
                 row.get("Sakit", 0),
+                f"=(F{curr_row}/E{curr_row})",
                 row.get("Izin", 0),
+                f"=(H{curr_row}/E{curr_row})",
                 row.get("Alpa", 0),
+                f"=(J{curr_row}/E{curr_row})",
                 row.get("Jumlah Ketidakhadiran", 0),
                 row.get("Jumlah Hadir", 0),
-                f"=(J{curr_row}/E{curr_row})"
+                f"=(M{curr_row}/E{curr_row})"
             ])
+            # Format % pada Excel
+            ws.cell(row=curr_row, column=7).number_format = '0.0%'
+            ws.cell(row=curr_row, column=9).number_format = '0.0%'
             ws.cell(row=curr_row, column=11).number_format = '0.0%'
+            ws.cell(row=curr_row, column=14).number_format = '0.0%'
 
         last_row = ws.max_row
         total_row = last_row + 1
@@ -335,13 +344,21 @@ with tab1:
             "JUMLAH TOTAL", "", "", "",
             f"=SUM(E{start_data_row}:E{last_row})",
             f"=SUM(F{start_data_row}:F{last_row})",
-            f"=SUM(G{start_data_row}:G{last_row})",
+            f"=F{total_row}/E{total_row}",
             f"=SUM(H{start_data_row}:H{last_row})",
-            f"=SUM(I{start_data_row}:I{last_row})",
+            f"=H{total_row}/E{total_row}",
             f"=SUM(J{start_data_row}:J{last_row})",
-            f"=J{total_row}/E{total_row}"
+            f"=J{total_row}/E{total_row}",
+            f"=SUM(L{start_data_row}:L{last_row})",
+            f"=SUM(M{start_data_row}:M{last_row})",
+            f"=M{total_row}/E{total_row}"
         ])
+
+        ws.cell(row=total_row, column=7).number_format = '0.0%'
+        ws.cell(row=total_row, column=9).number_format = '0.0%'
         ws.cell(row=total_row, column=11).number_format = '0.0%'
+        ws.cell(row=total_row, column=14).number_format = '0.0%'
+
         ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=4)
 
         apply_excel_styling(
@@ -358,7 +375,7 @@ with tab1:
         return output.getvalue()
 
     st.download_button(
-        label="📥 Download Excel Rekap Bulanan (Siap Cetak)",
+        label="📥 Download Excel Rekap Bulanan (Lengkap & Siap Cetak)",
         data=generate_excel_rekap_bulanan(),
         file_name=f"Rekap_Absensi_Bulanan_{kelas}_{bulan_tahun}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -399,14 +416,18 @@ with tab2:
     sakit_count = (edited_harian["Status Kehadiran"] == "Sakit").sum()
     izin_count = (edited_harian["Status Kehadiran"] == "Izin").sum()
     alpa_count = (edited_harian["Status Kehadiran"] == "Alpa").sum()
+
     persen_hadir = (hadir_count / total_siswa * 100) if total_siswa > 0 else 0
+    persen_sakit = (sakit_count / total_siswa * 100) if total_siswa > 0 else 0
+    persen_izin = (izin_count / total_siswa * 100) if total_siswa > 0 else 0
+    persen_alpa = (alpa_count / total_siswa * 100) if total_siswa > 0 else 0
 
     col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns(5)
-    col_h1.metric("Hadir", f"{hadir_count} Siswa")
-    col_h2.metric("Sakit", f"{sakit_count} Siswa")
-    col_h3.metric("Izin", f"{izin_count} Siswa")
-    col_h4.metric("Alpa", f"{alpa_count} Siswa")
-    col_h5.metric("% Kehadiran Hari Ini", f"{persen_hadir:.1f}%")
+    col_h1.metric("Hadir", f"{hadir_count} Siswa ({persen_hadir:.1f}%)")
+    col_h2.metric("Sakit", f"{sakit_count} Siswa ({persen_sakit:.1f}%)")
+    col_h3.metric("Izin", f"{izin_count} Siswa ({persen_izin:.1f}%)")
+    col_h4.metric("Alpa", f"{alpa_count} Siswa ({persen_alpa:.1f}%)")
+    col_h5.metric("Total Siswa", f"{total_siswa} Siswa")
 
     def generate_excel_harian():
         output = io.BytesIO()
@@ -433,12 +454,11 @@ with tab2:
 
         ws.append([])
         ws.append(["RINGKASAN KEHADIRAN HARIAN", "", "", "", ""])
-        ws.append(["Total Siswa", "", "", f"{total_siswa} Siswa", ""])
-        ws.append(["Total Hadir", "", "", f"{hadir_count} Siswa", ""])
-        ws.append(["Total Sakit", "", "", f"{sakit_count} Siswa", ""])
-        ws.append(["Total Izin", "", "", f"{izin_count} Siswa", ""])
-        ws.append(["Total Alpa", "", "", f"{alpa_count} Siswa", ""])
-        ws.append(["Persentase Kehadiran", "", "", f"{persen_hadir:.1f}%", ""])
+        ws.append(["Total Siswa", "", "", f"{total_siswa} Siswa", "100.0%"])
+        ws.append(["Total Hadir", "", "", f"{hadir_count} Siswa", f"{persen_hadir:.1f}%"])
+        ws.append(["Total Sakit", "", "", f"{sakit_count} Siswa", f"{persen_sakit:.1f}%"])
+        ws.append(["Total Izin", "", "", f"{izin_count} Siswa", f"{persen_izin:.1f}%"])
+        ws.append(["Total Alpa", "", "", f"{alpa_count} Siswa", f"{persen_alpa:.1f}%"])
 
         apply_excel_styling(
             ws, len(headers),
