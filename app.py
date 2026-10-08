@@ -4,7 +4,9 @@ import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image as OpenpyxlImage
 from datetime import datetime
+from PIL import Image
 
 st.set_page_config(page_title="Sistem Absensi & Mutasi Siswa", layout="wide")
 
@@ -13,19 +15,36 @@ st.caption("Aplikasi Rekapitulasi Absensi Bulanan, Harian, dan Mutasi Siswa Otom
 
 # Sidebar - Informasi Sekolah & Kelas
 st.sidebar.header("🏫 Data Sekolah & Kelas")
-nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SDN / SMPN / SMAN Negeri")
-kelas = st.sidebar.text_input("Kelas", "Kelas 5A")
+
+# --- FITUR UPLOAD LOGO SEKOLAH ---
+uploaded_logo = st.sidebar.file_uploader("Upload Logo Sekolah (PNG / JPG)", type=["png", "jpg", "jpeg"], key="logo_uploader")
+
+if uploaded_logo is not None:
+    logo_img = Image.open(uploaded_logo)
+    st.sidebar.image(logo_img, width=120, caption="Logo Sekolah")
+
+nama_sekolah = st.sidebar.text_input("Nama Sekolah", "SDN 01 NANGA MAHAP")
+
+# --- FITUR PILIHAN KELAS ---
+opsi_kelas = ["Kelas 1", "Kelas 2", "Kelas 3", "Kelas 4", "Kelas 5", "Kelas 6", "Lainnya (Ketik Manual)"]
+pilihan_kelas = st.sidebar.selectbox("Pilih Kelas", opsi_kelas, index=4)
+
+if pilihan_kelas == "Lainnya (Ketik Manual)":
+    kelas = st.sidebar.text_input("Ketik Kelas Kustom", "Kelas 5A")
+else:
+    kelas = pilihan_kelas
+
 bulan_tahun = st.sidebar.text_input("Bulan / Periode", "Oktober 2026")
 tempat_cetak = st.sidebar.text_input("Kota / Tempat Laporan", "Nanga Mahap")
 tgl_cetak = st.sidebar.date_input("Tanggal Cetak Laporan", datetime.today())
-wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "Guru Pembimbing, S.Pd.")
+wali_kelas = st.sidebar.text_input("Nama Wali Kelas", "FRISKA EKASARI, S.Pd.")
 
 # Helper Function: Formatting Tanggal Indonesia
 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
 
-# Helper Function: Styling Excel & TTD
-def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama, tgl_str, start_data_row=6):
+# Helper Function: Styling Excel, Logo & TTD
+def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama, tgl_str, logo_file=None, start_data_row=6):
     title_font = Font(name="Arial", size=11, bold=True)
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
@@ -36,9 +55,23 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
         bottom=Side(style='thin', color='D9D9D9')
     )
 
-    ws.cell(row=1, column=1, value=title_1).font = title_font
-    ws.cell(row=2, column=1, value=title_2).font = title_font
-    ws.cell(row=3, column=1, value=title_3).font = title_font
+    # Sisipkan Logo ke Excel jika ada
+    if logo_file is not None:
+        try:
+            logo_file.seek(0)
+            img = OpenpyxlImage(logo_file)
+            img.width = 65
+            img.height = 65
+            ws.add_image(img, "A1")
+            ws.row_dimensions[1].height = 20
+            ws.row_dimensions[2].height = 20
+            ws.row_dimensions[3].height = 20
+        except Exception:
+            pass
+
+    ws.cell(row=1, column=2, value=title_1).font = title_font
+    ws.cell(row=2, column=2, value=title_2).font = title_font
+    ws.cell(row=3, column=2, value=title_3).font = title_font
 
     for col_num in range(1, len(headers) + 1):
         cell = ws.cell(row=start_data_row - 1, column=col_num)
@@ -60,7 +93,7 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
             cell.font = Font(name="Arial", size=10, bold=True)
             cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
-    # Tanda Tangan dengan Tanggal Cetak Laporan
+    # Tanda Tangan
     ws.append([])
     ws.append([])
     ttd_col = max(1, len(headers) - 3)
@@ -74,6 +107,15 @@ def apply_excel_styling(ws, headers, title_1, title_2, title_3, wali_kelas_nama,
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+# Header Halaman Utama dengan Logo
+col_logo, col_header = st.columns([1, 6])
+with col_logo:
+    if uploaded_logo is not None:
+        st.image(uploaded_logo, width=90)
+with col_header:
+    st.markdown(f"### **{nama_sekolah.upper()}**")
+    st.markdown(f"**{kelas.upper()}** | Periode: **{bulan_tahun}**")
 
 # Tab Fitur
 tab1, tab2, tab3 = st.tabs([
@@ -154,7 +196,6 @@ with tab1:
     df_calc["Jumlah Hadir"] = df_calc["HBE"] - df_calc["Jumlah Ketidakhadiran"]
     df_calc["Jumlah Hadir"] = df_calc["Jumlah Hadir"].apply(lambda x: max(0, x))
     
-    # Persentase Kehadiran
     df_calc["% Kehadiran"] = (df_calc["Jumlah Hadir"] / df_calc["HBE"])
     df_calc_display = df_calc.copy()
     df_calc_display["% Kehadiran"] = (df_calc_display["% Kehadiran"] * 100).round(1).apply(lambda x: f"{x}%")
@@ -193,13 +234,11 @@ with tab1:
                 row.get("Jumlah Hadir", 0),
                 f"=(J{curr_row}/E{curr_row})"
             ])
-            # Format cell sebagai persen
             ws.cell(row=curr_row, column=11).number_format = '0.0%'
 
         last_row = ws.max_row
         total_row = last_row + 1
         
-        # Rumus Excel Perbaikan Tanpa #DIV/0!
         ws.append([
             "JUMLAH TOTAL", "", "", "",
             f"=SUM(E{start_data_row}:E{last_row})",
@@ -220,7 +259,8 @@ with tab1:
             f"LAPORAN REKAPITULASI ABSENSI SISWA - {kelas.upper()}",
             f"PERIODE: {bulan_tahun.upper()}",
             wali_kelas,
-            tgl_cetak_str
+            tgl_cetak_str,
+            logo_file=uploaded_logo
         )
 
         wb.save(output)
@@ -315,7 +355,8 @@ with tab2:
             f"LAPORAN KEHADIRAN HARIAN SISWA - {kelas.upper()}",
             f"TANGGAL: {tgl_pilih.strftime('%d-%m-%Y')}",
             wali_kelas,
-            tgl_cetak_str
+            tgl_cetak_str,
+            logo_file=uploaded_logo
         )
 
         wb.save(output)
@@ -403,7 +444,8 @@ with tab3:
             f"LAPORAN MUTASI SISWA - {kelas.upper()}",
             f"PERIODE: {bulan_tahun.upper()}",
             wali_kelas,
-            tgl_cetak_str
+            tgl_cetak_str,
+            logo_file=uploaded_logo
         )
 
         wb.save(output)
