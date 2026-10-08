@@ -3,7 +3,7 @@ import pandas as pd
 import io
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from datetime import datetime, date
+from datetime import date
 from PIL import Image
 
 # ==========================================
@@ -11,6 +11,7 @@ from PIL import Image
 # ==========================================
 st.set_page_config(page_title="Rekapitulasi Absensi Siswa", layout="wide")
 
+# Inisialisasi State Data Absensi
 if "data_absensi" not in st.session_state:
     st.session_state.data_absensi = pd.DataFrame([
         {"No": 1, "Nama Murid": "ABANG MUSHAWIR EDO", "L/P": "L", "Nomor Induk": "", "HBE": 25, "S": 0, "I": 0, "A": 0},
@@ -21,7 +22,7 @@ if "data_absensi" not in st.session_state:
     ])
 
 # ==========================================
-# 2. SIDEBAR - DATA SEKOLAH & KELAS
+# 2. SIDEBAR - DATA SEKOLAH & FITUR TAMBAH SISWA
 # ==========================================
 st.sidebar.header("🏫 Data Sekolah & Kelas")
 
@@ -42,6 +43,43 @@ nip_wali = st.sidebar.text_input("NIP Wali Kelas", "199305202024211001")
 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 tgl_cetak_str = f"{tempat_cetak}, {tgl_cetak.day} {bulan_indo[tgl_cetak.month - 1]} {tgl_cetak.year}"
 
+# ------------------------------------------
+# FITUR BARU: FORM TAMBAH SISWA BARU
+# ------------------------------------------
+st.sidebar.divider()
+st.sidebar.header("➕ Tambah Siswa Baru")
+
+with st.sidebar.form("form_tambah_siswa", clear_on_submit=True):
+    input_nama = st.text_input("Nama Lengkap Siswa")
+    input_lp = st.selectbox("Jenis Kelamin (L/P)", ["L", "P"])
+    input_nis = st.text_input("Nomor Induk (NIS/NISN)", "")
+    input_hbe = st.number_input("Hari Belajar Efektif (HBE)", min_value=1, value=25)
+    
+    btn_tambah = st.form_submit_button("➕ Tambahkan Siswa")
+
+    if btn_tambah:
+        if input_nama.strip() == "":
+            st.sidebar.error("Nama siswa tidak boleh kosong!")
+        else:
+            no_baru = len(st.session_state.data_absensi) + 1
+            siswa_baru = {
+                "No": no_baru,
+                "Nama Murid": input_nama.upper(),
+                "L/P": input_lp,
+                "Nomor Induk": input_nis,
+                "HBE": input_hbe,
+                "S": 0,
+                "I": 0,
+                "A": 0
+            }
+            # Tambah baris baru ke session state
+            st.session_state.data_absensi = pd.concat(
+                [st.session_state.data_absensi, pd.DataFrame([siswa_baru])], 
+                ignore_index=True
+            )
+            st.sidebar.success(f"Berhasil menambahkan {input_nama.upper()}!")
+            st.rerun()
+
 # ==========================================
 # 3. HEADER LAPORAN UTAMA
 # ==========================================
@@ -55,6 +93,7 @@ st.markdown(f"**KELAS : {kelas.upper()}**")
 # 4. INPUT / EDIT TABEL INTERAKTIF
 # ==========================================
 st.markdown("### 📝 Input / Edit Data Absensi Siswa")
+st.caption("Anda dapat menambah baris langsung di bawah tabel ini, atau mengedit jumlah S/I/A dan data siswa.")
 
 df_to_edit = st.session_state.data_absensi.copy().reset_index(drop=True)
 
@@ -63,9 +102,11 @@ edited_df = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
-    key="tabel_absensi_v2"
+    key="tabel_absensi_v3"
 )
 
+# Update nomor urut otomatis
+edited_df["No"] = range(1, len(edited_df) + 1)
 st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
 
 # ==========================================
@@ -83,7 +124,7 @@ df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"]).fillna(0)
 df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"]).fillna(0)
 df_calc["PRESENTASE KEHADIRAN %"] = ((df_calc["HBE"] - df_calc["JUMLAH"]) / df_calc["HBE"]).fillna(0)
 
-# Tampilan Tabel Web (Kolom 'JUMLAH HADIR' Dihapus)
+# Tampilan Tabel Web
 df_view = pd.DataFrame()
 df_view["NO"] = df_calc["No"].astype(str)
 df_view["NAMA MURID"] = df_calc["Nama Murid"]
@@ -143,7 +184,7 @@ st.markdown(f"""
 """)
 
 # ==========================================
-# 6. EXCEL GENERATOR (TANPA JUMLAH HADIR)
+# 6. EXCEL GENERATOR
 # ==========================================
 def generate_excel_laporan():
     output = io.BytesIO()
@@ -223,7 +264,7 @@ def generate_excel_laporan():
     num_students = len(df_calc)
     for idx, row in df_calc.iterrows():
         r = start_row + idx
-        ws.cell(row=r, column=1, value=row.get("No", idx + 1))
+        ws.cell(row=r, column=1, value=idx + 1)
         ws.cell(row=r, column=2, value=row.get("Nama Murid", ""))
         
         lp_cell = ws.cell(row=r, column=3, value=row.get("L/P", "L"))
@@ -235,7 +276,7 @@ def generate_excel_laporan():
         ws.cell(row=r, column=7, value=row.get("I", 0))
         ws.cell(row=r, column=8, value=row.get("A", 0))
         
-        # Rumus Excel Jumlah Absen & Presentase
+        # Rumus Excel
         ws.cell(row=r, column=9, value=f"=SUM(F{r}:H{r})")
         ws.cell(row=r, column=10, value=f"=F{r}/E{r}").number_format = '0%'
         ws.cell(row=r, column=11, value=f"=G{r}/E{r}").number_format = '0%'
@@ -258,16 +299,17 @@ def generate_excel_laporan():
     cell_tot_lbl.font = font_title
     cell_tot_lbl.alignment = Alignment(horizontal="center", vertical="center")
 
-    ws.cell(row=total_row_idx, column=3, value=f"=COUNTA(C9:C{total_row_idx-1})")
-    ws.cell(row=total_row_idx, column=6, value=f"=SUM(F9:F{total_row_idx-1})")
-    ws.cell(row=total_row_idx, column=7, value=f"=SUM(G9:G{total_row_idx-1})")
-    ws.cell(row=total_row_idx, column=8, value=f"=SUM(H9:H{total_row_idx-1})")
-    ws.cell(row=total_row_idx, column=9, value=f"=SUM(I9:I{total_row_idx-1})")
-    
-    ws.cell(row=total_row_idx, column=10, value=f"=AVERAGE(J9:J{total_row_idx-1})").number_format = '0%'
-    ws.cell(row=total_row_idx, column=11, value=f"=AVERAGE(K9:K{total_row_idx-1})").number_format = '0%'
-    ws.cell(row=total_row_idx, column=12, value=f"=AVERAGE(L9:L{total_row_idx-1})").number_format = '0%'
-    ws.cell(row=total_row_idx, column=13, value=f"=AVERAGE(M9:M{total_row_idx-1})").number_format = '0%'
+    if num_students > 0:
+        ws.cell(row=total_row_idx, column=3, value=f"=COUNTA(C9:C{total_row_idx-1})")
+        ws.cell(row=total_row_idx, column=6, value=f"=SUM(F9:F{total_row_idx-1})")
+        ws.cell(row=total_row_idx, column=7, value=f"=SUM(G9:G{total_row_idx-1})")
+        ws.cell(row=total_row_idx, column=8, value=f"=SUM(H9:H{total_row_idx-1})")
+        ws.cell(row=total_row_idx, column=9, value=f"=SUM(I9:I{total_row_idx-1})")
+        
+        ws.cell(row=total_row_idx, column=10, value=f"=AVERAGE(J9:J{total_row_idx-1})").number_format = '0%'
+        ws.cell(row=total_row_idx, column=11, value=f"=AVERAGE(K9:K{total_row_idx-1})").number_format = '0%'
+        ws.cell(row=total_row_idx, column=12, value=f"=AVERAGE(L9:L{total_row_idx-1})").number_format = '0%'
+        ws.cell(row=total_row_idx, column=13, value=f"=AVERAGE(M9:M{total_row_idx-1})").number_format = '0%'
 
     for c in range(1, 14):
         cell = ws.cell(row=total_row_idx, column=c)
@@ -284,15 +326,15 @@ def generate_excel_laporan():
 
     ws.cell(row=r_sum1, column=1, value="Laki – Laki").font = font_bold
     ws.cell(row=r_sum1, column=3, value=":").alignment = Alignment(horizontal="center")
-    ws.cell(row=r_sum1, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "L")').font = font_bold
+    ws.cell(row=r_sum1, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "L")' if num_students > 0 else 0).font = font_bold
 
     ws.cell(row=r_sum2, column=1, value="Perempuan").font = font_bold
     ws.cell(row=r_sum2, column=3, value=":").alignment = Alignment(horizontal="center")
-    ws.cell(row=r_sum2, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "P")').font = font_bold
+    ws.cell(row=r_sum2, column=4, value=f'=COUNTIF(C9:C{total_row_idx-1}, "P")' if num_students > 0 else 0).font = font_bold
 
     ws.cell(row=r_sum3, column=1, value="Jumlah akhir bulan").font = font_bold
     ws.cell(row=r_sum3, column=3, value=":").alignment = Alignment(horizontal="center")
-    ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})').font = font_bold
+    ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})' if num_students > 0 else 0).font = font_bold
 
     # Tanda Tangan Wali Kelas
     r_ttd_tgl = total_row_idx + 4
