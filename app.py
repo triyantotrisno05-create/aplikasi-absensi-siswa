@@ -22,6 +22,10 @@ def parse_gender(val):
         return "P"
     return "L"
 
+# Inisialisasi Versi Data untuk Reset Key Editor
+if "data_version" not in st.session_state:
+    st.session_state.data_version = 0
+
 # ==========================================
 # SIDEBAR - DATA SEKOLAH & KELAS
 # ==========================================
@@ -109,7 +113,6 @@ if uploaded_file is not None:
 
         df_upload = df_upload.rename(columns=column_map)
 
-        # Lengkapi kolom jika tidak ada
         if "No" not in df_upload.columns:
             df_upload["No"] = list(range(1, len(df_upload) + 1))
         if "Nama Murid" not in df_upload.columns:
@@ -127,26 +130,27 @@ if uploaded_file is not None:
         if "A" not in df_upload.columns:
             df_upload["A"] = 0
 
-        # Murni otomatisasi L/P
         df_upload["L/P"] = df_upload["L/P"].apply(parse_gender)
 
         required_cols = ["No", "Nama Murid", "L/P", "Nomor Induk", "HBE", "S", "I", "A"]
-        st.session_state.data_absensi = df_upload[required_cols].copy()
+        df_final = df_upload[required_cols].copy()
+        df_final = df_final.reset_index(drop=True)
         
-        # Bersihkan state editor agar tidak konflik cache
-        if "editor_absensi" in st.session_state:
-            del st.session_state["editor_absensi"]
-            
-        st.success("✅ Data siswa berhasil diunggah!")
+        # Cek apakah data berbeda, jika ya update versi untuk mereset widget editor
+        if not df_final.equals(st.session_state.data_absensi):
+            st.session_state.data_absensi = df_final
+            st.session_state.data_version += 1
+            st.success("✅ Data siswa berhasil diunggah!")
     except Exception as e:
         st.error(f"Gagal membaca file: {e}")
 
 # ==========================================
-# PERSIAPAN DATA AMAN UNTUK ST.DATA_EDITOR
+# PERSIAPAN DATA BERSIH UNTUK ST.DATA_EDITOR
 # ==========================================
 df_to_edit = st.session_state.data_absensi.copy()
 
-# Pastikan tipe data dan pembersihan nilai ekstrem
+# Pastikan reset index dan tipe data konsisten
+df_to_edit = df_to_edit.reset_index(drop=True)
 df_to_edit["L/P"] = df_to_edit["L/P"].apply(parse_gender)
 df_to_edit["No"] = pd.to_numeric(df_to_edit["No"], errors="coerce").fillna(1).astype(int)
 df_to_edit["Nama Murid"] = df_to_edit["Nama Murid"].fillna("").astype(str)
@@ -160,13 +164,13 @@ for col in ["HBE", "S", "I", "A"]:
 # ==========================================
 st.markdown("### 📝 Input / Edit Data Absensi Siswa")
 
-# Penggunaan TextColumn pada L/P mencegah crash fatal akibat Streamlit API Exception
+# Penggunaan Key Dinamis mencegah konflik cache Streamlit State secara total
 edited_df = st.data_editor(
     df_to_edit,
     column_config={
         "No": st.column_config.NumberColumn("No", min_value=1),
-        "Nama Murid": st.column_config.TextColumn("Nama Murid", required=True),
-        "L/P": st.column_config.TextColumn("L/P (L/P)", help="Ketik L untuk Laki-laki atau P untuk Perempuan"),
+        "Nama Murid": st.column_config.TextColumn("Nama Murid"),
+        "L/P": st.column_config.TextColumn("L/P", help="Ketik L untuk Laki-laki atau P untuk Perempuan"),
         "Nomor Induk": st.column_config.TextColumn("Nomor Induk"),
         "HBE": st.column_config.NumberColumn("HBE", min_value=1, default=25),
         "S": st.column_config.NumberColumn("S (Sakit)", min_value=0, default=0),
@@ -174,12 +178,13 @@ edited_df = st.data_editor(
         "A": st.column_config.NumberColumn("A (Alpa)", min_value=0, default=0),
     },
     num_rows="dynamic",
-    use_container_width=True
+    use_container_width=True,
+    key=f"editor_absensi_v{st.session_state.data_version}"
 )
 
-# Update data dan validasi jenis kelamin otomatis
+# Sync data kembali ke state
 edited_df["L/P"] = edited_df["L/P"].apply(parse_gender)
-st.session_state.data_absensi = edited_df.copy()
+st.session_state.data_absensi = edited_df.reset_index(drop=True).copy()
 
 # Kalkulasi Laporan
 df_calc = edited_df.copy()
@@ -195,7 +200,7 @@ df_calc["PRESENTASE I"] = (df_calc["I"] / df_calc["HBE"])
 df_calc["PRESENTASE A"] = (df_calc["A"] / df_calc["HBE"])
 df_calc["PRESENTASE KEHADIRAN %"] = (df_calc["JUMLAH HADIR"] / df_calc["HBE"])
 
-# Tampilan Web Laporan (Lengkap)
+# Tampilan Web Laporan
 df_view = pd.DataFrame()
 df_view["NO"] = df_calc["No"].astype(str)
 df_view["NAMA MURID"] = df_calc["Nama Murid"]
@@ -212,7 +217,7 @@ df_view["PRESENTASE (I)"] = (df_calc["PRESENTASE I"] * 100).round(0).astype(int)
 df_view["PRESENTASE (A)"] = (df_calc["PRESENTASE A"] * 100).round(0).astype(int).astype(str) + "%"
 df_view["PRESENTASE KEHADIRAN %"] = (df_calc["PRESENTASE KEHADIRAN %"] * 100).round(0).astype(int).astype(str) + "%"
 
-# Tambahkan Baris TOTAL
+# Ringkasan Total
 total_l = (df_calc["L/P"] == "L").sum()
 total_p = (df_calc["L/P"] == "P").sum()
 total_siswa = len(df_calc)
@@ -283,7 +288,6 @@ def generate_excel_laporan():
         bottom=Side(style='thin', color='000000')
     )
 
-    # Title
     ws.merge_cells("A1:N1")
     ws.cell(row=1, column=1, value="REKAPITULASI ABSENSI SISWA").font = font_title
     ws.cell(row=1, column=1).alignment = Alignment(horizontal="center", vertical="center")
@@ -298,7 +302,6 @@ def generate_excel_laporan():
 
     ws.cell(row=5, column=1, value=f"KELAS   : {kelas.upper()}").font = font_bold
 
-    # Headers
     headers_r7 = [
         ("NO", "A7", "A8"),
         ("NAMA MURID", "B7", "B8"),
@@ -333,7 +336,6 @@ def generate_excel_laporan():
         ws.cell(row=8, column=c).border = thin_border
         ws.cell(row=8, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-    # Data Rows
     start_row = 9
     num_students = len(df_calc)
     for idx, row in df_calc.iterrows():
@@ -367,7 +369,6 @@ def generate_excel_laporan():
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Baris JUMLAH (Kuning)
     total_row_idx = start_row + num_students
     ws.merge_cells(f"A{total_row_idx}:B{total_row_idx}")
     cell_tot_lbl = ws.cell(row=total_row_idx, column=1, value="JUMLAH")
@@ -393,7 +394,6 @@ def generate_excel_laporan():
         if c not in [1, 2]:
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Ringkasan Bawah
     r_sum1 = total_row_idx + 2
     r_sum2 = r_sum1 + 1
     r_sum3 = r_sum2 + 1
@@ -410,7 +410,6 @@ def generate_excel_laporan():
     ws.cell(row=r_sum3, column=3, value=":").alignment = Alignment(horizontal="center")
     ws.cell(row=r_sum3, column=4, value=f'=COUNTA(C9:C{total_row_idx-1})').font = font_bold
 
-    # Tanda Tangan
     r_ttd_tgl = total_row_idx + 4
     r_ttd_jab = r_ttd_tgl + 1
     r_ttd_nama = r_ttd_jab + 4
@@ -421,7 +420,6 @@ def generate_excel_laporan():
     ws.cell(row=r_ttd_nama, column=11, value=wali_kelas).font = Font(name="Calibri", size=10, bold=True, underline="single")
     ws.cell(row=r_ttd_nip, column=11, value=f"NIP. {nip_wali}" if nip_wali else "").font = font_bold
 
-    # Lebar Kolom Cetak Presisi
     col_widths = {
         'A': 5, 'B': 30, 'C': 6, 'D': 16, 'E': 6,
         'F': 5, 'G': 5, 'H': 5, 'I': 8, 'J': 12,
@@ -430,7 +428,6 @@ def generate_excel_laporan():
     for col_letter, width in col_widths.items():
         ws.column_dimensions[col_letter].width = width
 
-    # Setup Cetak A4 Landscape Fit to Page
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.sheet_properties.pageSetUpPr.fitToPage = True
