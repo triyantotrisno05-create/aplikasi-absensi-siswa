@@ -130,11 +130,13 @@ with tab1:
             "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
+    # Mengecek dan memuat data siswa tersimpan dari upload Tab 3
     if "df_siswa" in st.session_state and not st.session_state[
         "df_siswa"
     ].empty:
         df_base = st.session_state["df_siswa"].copy()
     else:
+        # Default Data Contoh Jika Belum Ada File Diupload
         default_data = [
             ("1", "ABANG MUSHAVIR EDO", "L", "148355770"),
             ("2", "AHMAD YANI", "L", "3143662047"),
@@ -148,13 +150,21 @@ with tab1:
 
     session_key_rekap = f"df_rekap_{bln_rekap}_{thn_rekap}"
 
-    if session_key_rekap not in st.session_state:
+    # Sinkronkan data jika ada update upload baru atau pilihan bulan baru
+    if (
+        session_key_rekap not in st.session_state
+        or st.session_state.get("need_reload_rekap", False)
+    ):
         df_init = df_base.copy()
         df_init["HBE"] = hbe_input
-        df_init["S"] = 0
-        df_init["I"] = 0
-        df_init["A"] = 0
+        if "S" not in df_init.columns:
+            df_init["S"] = 0
+        if "I" not in df_init.columns:
+            df_init["I"] = 0
+        if "A" not in df_init.columns:
+            df_init["A"] = 0
         st.session_state[session_key_rekap] = df_init
+        st.session_state["need_reload_rekap"] = False
 
     def hitung_rekap_bulanan(df, hbe_val):
         df_calc = df.copy()
@@ -162,9 +172,9 @@ with tab1:
         pct_s_list, pct_i_list, pct_a_list, pct_hadir_list = [], [], [], []
 
         for _, row in df_calc.iterrows():
-            s = int(row["S"]) if str(row["S"]).isdigit() else 0
-            i = int(row["I"]) if str(row["I"]).isdigit() else 0
-            a = int(row["A"]) if str(row["A"]).isdigit() else 0
+            s = int(row["S"]) if str(row.get("S", 0)).isdigit() else 0
+            i = int(row["I"]) if str(row.get("I", 0)).isdigit() else 0
+            a = int(row["A"]) if str(row.get("A", 0)).isdigit() else 0
 
             tot_absen = s + i + a
             tot_hadir = max(0, hbe_val - tot_absen)
@@ -439,11 +449,13 @@ with tab2:
 
 
 # ------------------------------------------
-# TAB 3: UPLOAD DATA SISWA
+# TAB 3: UPLOAD DATA SISWA (AUTO MAPPING & SYNCRONIZE)
 # ------------------------------------------
 with tab3:
     st.subheader("📂 Upload Data Siswa Kelas IX C")
-    st.caption("Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda.")
+    st.caption(
+        "Unggah file Excel (.xlsx / .xls) atau CSV daftar siswa Anda. Kolom otomatis dipetakan ke Rekapitulasi!"
+    )
 
     uploaded_file = st.file_uploader(
         "Pilih File Excel atau CSV", type=["xlsx", "xls", "csv"]
@@ -459,21 +471,58 @@ with tab3:
             else:
                 df_uploaded = pd.read_excel(uploaded_file, dtype=str)
 
+            # Bersihkan nama kolom
             df_uploaded.columns = [
-                str(col).strip() for col in df_uploaded.columns
+                str(col).strip().upper() for col in df_uploaded.columns
             ]
-            first_col = df_uploaded.columns[0]
 
-            df_uploaded = df_uploaded.dropna(how="all")
-            df_uploaded = df_uploaded[
-                ~df_uploaded[first_col]
-                .astype(str)
-                .str.contains(r"^\;*$", na=False)
-                & (df_uploaded[first_col].astype(str).str.strip() != "")
-            ].reset_index(drop=True)
+            # Fitur Pintar Auto-Rename Kolom ke Format Standar Rekap
+            rename_dict = {}
+            for col in df_uploaded.columns:
+                if any(
+                    k in col
+                    for k in ["NAMA", "NAMA SISWA", "MURID", "NAMA MURID"]
+                ):
+                    rename_dict[col] = "NAMA MURID"
+                elif any(
+                    k in col
+                    for k in [
+                        "INDUK",
+                        "NOMOR INDUK",
+                        "NIS",
+                        "NISN",
+                        "NIPD",
+                        "NO INDUK",
+                    ]
+                ):
+                    rename_dict[col] = "NOMOR INDUK"
+                elif col in ["JK", "L/P", "JENIS KELAMIN", "SEX"]:
+                    rename_dict[col] = "L/P"
+                elif col in ["NO", "NO.", "NOMOR"]:
+                    rename_dict[col] = "NO"
 
+            df_uploaded = df_uploaded.rename(columns=rename_dict)
+
+            # Jika nomor tidak ada, buat nomor urut otomatis
+            if "NO" not in df_uploaded.columns:
+                df_uploaded.insert(0, "NO", [str(i + 1) for i in range(len(df_uploaded))])
+            if "L/P" not in df_uploaded.columns:
+                df_uploaded["L/P"] = "L"
+            if "NOMOR INDUK" not in df_uploaded.columns:
+                df_uploaded["NOMOR INDUK"] = "-"
+
+            # Pilih kolom wajib saja
+            df_uploaded = df_uploaded[["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]]
+            df_uploaded = df_uploaded.dropna(subset=["NAMA MURID"]).reset_index(
+                drop=True
+            )
+
+            # Simpan ke session state dan beri sinyal ke Tab 1
             st.session_state["df_siswa"] = df_uploaded
-            st.success(f"✅ Berhasil memproses data {len(df_uploaded)} siswa!")
+            st.session_state["need_reload_rekap"] = True
+            st.success(
+                f"✅ BERHASIL! Data {len(df_uploaded)} siswa telah dimasukkan dan terhubung ke Rekapitulasi Bulanan!"
+            )
 
         except Exception as e:
             st.error(f"Gagal membaca file: {e}")
@@ -491,7 +540,7 @@ with tab3:
 
 
 # ------------------------------------------
-# TAB 4: MUTASI SISWA (EXACT PERSIS SESUAI FOTO)
+# TAB 4: MUTASI SISWA
 # ------------------------------------------
 with tab4:
     st.subheader("🔄 Data Mutasi Siswa (Sesuai Format Foto Gambar)")
@@ -505,7 +554,7 @@ with tab4:
             "Pilih Bulan Mutasi",
             options=list(range(1, 13)),
             format_func=lambda x: nama_bulan[x - 1],
-            index=3,  # Default April
+            index=3,
             key="bln_tab4",
         )
     with col_m_t:
@@ -515,7 +564,6 @@ with tab4:
             key="thn_tab4",
         )
 
-    # Inisialisasi Data Default sesuai Kolom Gambar (10 Baris Kosong/Isi)
     if "df_mutasi_exact" not in st.session_state:
         default_mutasi_data = []
         for i in range(1, 11):
@@ -534,7 +582,6 @@ with tab4:
             )
         st.session_state["df_mutasi_exact"] = pd.DataFrame(default_mutasi_data)
 
-    # Data Editor Interaktif dengan Kolom Sesuai Gambar
     df_mutasi_edited = st.data_editor(
         st.session_state["df_mutasi_exact"],
         key="editor_mutasi_exact",
@@ -558,7 +605,6 @@ with tab4:
         hide_index=True,
     )
 
-    # Generator HTML Excel Persis Format Gambar
     def generate_excel_mutasi_html(df_data, bulan, tahun):
         html = f"""
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
