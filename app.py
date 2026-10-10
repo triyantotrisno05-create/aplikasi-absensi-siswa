@@ -14,10 +14,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# LOGO PERMANEN (Tercetak langsung di dalam kode)
-LOGO_PERMANENT_URL = "https://raw.githubusercontent.com/trivantotrisno/assets/main/logo_smpn1.png"
-# Alternatif fallback base64/URL logo jika offline/lokal
-LOGO_DEFAULT = "https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
+# LOGO GURU WALI PERMANEN (Ditampilkan langsung dari URL / Asset Terdaftar)
+LOGO_SEKOLAH_URL = "https://raw.githubusercontent.com/trivantotrisno/assets/main/logo_smpn1.png"
 
 # Custom CSS Styling
 st.markdown(
@@ -99,11 +97,8 @@ data_tersimpan = muat_data_kelas(kelas_input)
 col_logo1, col_text, col_logo2 = st.columns([1, 4, 1])
 
 with col_logo1:
-    # Logo Guru Wali Permanen dari Gambar yang Diupload
-    try:
-        st.image("Gemini_Generated_Image_w1fvy0w1fvy0w1fv.jpeg", width=110)
-    except Exception:
-        st.image(LOGO_DEFAULT, width=100)
+    # Memuat logo sekolah permanen tanpa menggunakan logo google
+    st.image("Gemini_Generated_Image_w1fvy0w1fvy0w1fv.jpeg", width=120)
 
 with col_text:
     st.markdown(
@@ -170,7 +165,6 @@ with tab1:
             "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
-    # Memuat data siswa tersimpan permanen
     if (
         data_tersimpan
         and "df_siswa" in data_tersimpan
@@ -195,7 +189,6 @@ with tab1:
 
     session_key_rekap = f"rekap_{bln_rekap}_{thn_rekap}"
 
-    # Cek jika ada rekap tersimpan di JSON
     if data_tersimpan and session_key_rekap in data_tersimpan:
         df_init = pd.DataFrame(data_tersimpan[session_key_rekap])
     else:
@@ -707,7 +700,6 @@ with tab4:
             "Pilih Tahun Mutasi", value=2026, key="thn_tab4"
         )
 
-    # Muat data mutasi tersimpan atau default
     if data_tersimpan and "df_mutasi" in data_tersimpan:
         default_mutasi_data = data_tersimpan["df_mutasi"]
     else:
@@ -737,7 +729,6 @@ with tab4:
         hide_index=True,
     )
 
-    # Function Header Mutasi Dinamis Mengikuti Kelas Sidebar
     def generate_excel_mutasi_html(df_data, bulan, tahun):
         html = f"""
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
