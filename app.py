@@ -14,6 +14,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# LOGO PERMANEN (Tercetak langsung di dalam kode)
+LOGO_PERMANENT_URL = "https://raw.githubusercontent.com/trivantotrisno/assets/main/logo_smpn1.png"
+# Alternatif fallback base64/URL logo jika offline/lokal
+LOGO_DEFAULT = "https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
+
 # Custom CSS Styling
 st.markdown(
     """
@@ -34,7 +39,7 @@ st.markdown(
 )
 
 # ==========================================
-# 2. SISTEM PENYIMPANAN DATA PER KELAS (JSON)
+# 2. SISTEM PENYIMPANAN AUTO-SAVE PER KELAS
 # ==========================================
 DATA_DIR = "data_kelas"
 if not os.path.exists(DATA_DIR):
@@ -44,33 +49,34 @@ if not os.path.exists(DATA_DIR):
 def get_file_path(kelas_nama):
     clean_name = "".join(
         c for c in kelas_nama if c.isalnum() or c in (" ", "_", "-")
-    ).rstrip()
+    ).strip()
+    if not clean_name:
+        clean_name = "default"
     return os.path.join(DATA_DIR, f"data_{clean_name}.json")
 
 
 def simpan_data_kelas(kelas_nama, data_dict):
     filepath = get_file_path(kelas_nama)
-    with open(filepath, "w") as f:
-        json.dump(data_dict, f, indent=4)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data_dict, f, indent=4, ensure_ascii=False)
 
 
 def muat_data_kelas(kelas_nama):
     filepath = get_file_path(kelas_nama)
     if os.path.exists(filepath):
-        with open(filepath, "r") as f:
-            return json.load(f)
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
     return None
 
 
 # ==========================================
-# 3. PENGATURAN IDENTITAS SEKOLAH & LOGO (SIDEBAR)
+# 3. PENGATURAN IDENTITAS SEKOLAH (SIDEBAR)
 # ==========================================
 with st.sidebar:
-    st.header("⚙️ Pengaturan Sekolah & Header")
-
-    uploaded_logo = st.file_uploader(
-        "🖼️ Upload Logo Sekolah", type=["png", "jpg", "jpeg"]
-    )
+    st.header("⚙️ Pengaturan Header & Kelas")
 
     nama_sekolah = st.text_input(
         "Nama Sekolah", value="SMP NEGERI 1 NANGA MAHAP"
@@ -81,22 +87,23 @@ with st.sidebar:
     nip_wali = st.text_input("NIP Wali Kelas", value="199305202024211000")
     kota_lokasi = st.text_input("Kota / Kecamatan", value="Nanga Mahap")
 
-    st.info(f"📌 Anda mengedit data untuk **Kelas: {kelas_input}**")
+    st.divider()
+    st.info(f"📌 **Status Server**: Data untuk Kelas **{kelas_input}** tersimpan otomatis!")
 
+# Muat data tersimpan dari file jika halaman di-refresh
 data_tersimpan = muat_data_kelas(kelas_input)
 
 # ==========================================
-# 4. TAMPILAN HEADER UTAMA APLIKASI
+# 4. TAMPILAN HEADER UTAMA DENGAN LOGO PERMANEN
 # ==========================================
 col_logo1, col_text, col_logo2 = st.columns([1, 4, 1])
 
 with col_logo1:
-    if uploaded_logo is not None:
-        st.image(uploaded_logo, width=90)
-    else:
-        st.image(
-            "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=90
-        )
+    # Logo Guru Wali Permanen dari Gambar yang Diupload
+    try:
+        st.image("Gemini_Generated_Image_w1fvy0w1fvy0w1fv.jpeg", width=110)
+    except Exception:
+        st.image(LOGO_DEFAULT, width=100)
 
 with col_text:
     st.markdown(
@@ -163,6 +170,7 @@ with tab1:
             "Hari Belajar Efektif (HBE)", min_value=1, max_value=31, value=25
         )
 
+    # Memuat data siswa tersimpan permanen
     if (
         data_tersimpan
         and "df_siswa" in data_tersimpan
@@ -185,9 +193,12 @@ with tab1:
             default_data, columns=["NO", "NAMA MURID", "L/P", "NOMOR INDUK"]
         )
 
-    session_key_rekap = f"df_rekap_{kelas_input}_{bln_rekap}_{thn_rekap}"
+    session_key_rekap = f"rekap_{bln_rekap}_{thn_rekap}"
 
-    if session_key_rekap not in st.session_state:
+    # Cek jika ada rekap tersimpan di JSON
+    if data_tersimpan and session_key_rekap in data_tersimpan:
+        df_init = pd.DataFrame(data_tersimpan[session_key_rekap])
+    else:
         df_init = df_base.copy()
         df_init["HBE"] = hbe_input
         if "S" not in df_init.columns:
@@ -196,7 +207,8 @@ with tab1:
             df_init["I"] = 0
         if "A" not in df_init.columns:
             df_init["A"] = 0
-        st.session_state[session_key_rekap] = df_init
+
+    st.session_state[f"state_{session_key_rekap}"] = df_init
 
     def hitung_rekap_bulanan(df, hbe_val):
         df_calc = df.copy()
@@ -236,8 +248,8 @@ with tab1:
         return df_calc
 
     df_rekap_edited = st.data_editor(
-        st.session_state[session_key_rekap],
-        key=f"editor_{session_key_rekap}",
+        st.session_state[f"state_{session_key_rekap}"],
+        key=f"editor_{session_key_rekap}_{kelas_input}",
         use_container_width=True,
         hide_index=True,
     )
@@ -352,11 +364,9 @@ with tab1:
         ):
             p_data = data_tersimpan if data_tersimpan else {}
             p_data["df_siswa"] = df_base.to_dict(orient="records")
-            p_data[f"rekap_{bln_rekap}_{thn_rekap}"] = df_rekap_edited.to_dict(
-                orient="records"
-            )
+            p_data[session_key_rekap] = df_rekap_edited.to_dict(orient="records")
             simpan_data_kelas(kelas_input, p_data)
-            st.success(f"✅ Rekapitulasi Kelas {kelas_input} Disimpan!")
+            st.success(f"✅ Data Rekapitulasi Kelas {kelas_input} Tersimpan Permanen!")
 
     with col_btn_r2:
         excel_bytes_bulanan = generate_excel_html_bulanan(
@@ -395,9 +405,11 @@ with tab2:
         )
 
     _, total_hari = calendar.monthrange(tahun_selected, bulan_selected)
-    session_key = f"df_harian_{kelas_input}_{bulan_selected}_{tahun_selected}"
+    session_key_harian = f"harian_{bulan_selected}_{tahun_selected}"
 
-    if session_key not in st.session_state:
+    if data_tersimpan and session_key_harian in data_tersimpan:
+        data_harian = data_tersimpan[session_key_harian]
+    else:
         data_harian = []
         for tgl in range(1, total_hari + 1):
             is_minggu = (
@@ -415,7 +427,8 @@ with tab2:
                     "Tidak hadir %": "-" if is_minggu else "0%",
                 }
             )
-        st.session_state[session_key] = pd.DataFrame(data_harian)
+
+    st.session_state[f"state_{session_key_harian}"] = pd.DataFrame(data_harian)
 
     def hitung_ulang(df):
         df_copy = df.copy()
@@ -452,8 +465,8 @@ with tab2:
         return df_copy
 
     edited_df = st.data_editor(
-        st.session_state[session_key],
-        key=f"editor_{session_key}",
+        st.session_state[f"state_{session_key_harian}"],
+        key=f"editor_{session_key_harian}_{kelas_input}",
         num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
@@ -567,11 +580,9 @@ with tab2:
             f"💾 Simpan Harian Kelas {kelas_input}", key="btn_save_harian"
         ):
             p_data = data_tersimpan if data_tersimpan else {}
-            p_data[f"harian_{bulan_selected}_{tahun_selected}"] = (
-                edited_df.to_dict(orient="records")
-            )
+            p_data[session_key_harian] = edited_df.to_dict(orient="records")
             simpan_data_kelas(kelas_input, p_data)
-            st.success(f"✅ Data Harian Kelas {kelas_input} Disimpan!")
+            st.success(f"✅ Data Presensi Harian Kelas {kelas_input} Tersimpan!")
 
     with btn_h2:
         excel_harian_bytes = generate_excel_harian_html(
@@ -658,15 +669,26 @@ with tab3:
             simpan_data_kelas(kelas_input, p_data)
 
             st.success(
-                f"✅ Data {len(df_uploaded)} siswa Kelas {kelas_input} Berhasil Disimpan!"
+                f"✅ Data {len(df_uploaded)} Siswa Kelas {kelas_input} Tersimpan!"
             )
             st.rerun()
 
         except Exception as e:
             st.error(f"Gagal membaca file: {e}")
 
+    if "df_siswa" in st.session_state and not st.session_state[
+        "df_siswa"
+    ].empty:
+        st.write("---")
+        st.write("### Data Siswa Tersimpan Saat Ini:")
+        st.dataframe(
+            st.session_state["df_siswa"],
+            use_container_width=True,
+            hide_index=True,
+        )
+
 # ------------------------------------------
-# TAB 4: MUTASI SISWA
+# TAB 4: MUTASI SISWA (HEADER DINAMIS OTOMATIS)
 # ------------------------------------------
 with tab4:
     st.subheader(f"🔄 Data Mutasi Siswa Kelas {kelas_input}")
@@ -685,7 +707,10 @@ with tab4:
             "Pilih Tahun Mutasi", value=2026, key="thn_tab4"
         )
 
-    if "df_mutasi_exact" not in st.session_state:
+    # Muat data mutasi tersimpan atau default
+    if data_tersimpan and "df_mutasi" in data_tersimpan:
+        default_mutasi_data = data_tersimpan["df_mutasi"]
+    else:
         default_mutasi_data = []
         for i in range(1, 11):
             default_mutasi_data.append(
@@ -701,16 +726,18 @@ with tab4:
                     "Tgl. Masuk": "" if i > 1 else "2026-04-10",
                 }
             )
-        st.session_state["df_mutasi_exact"] = pd.DataFrame(default_mutasi_data)
+
+    st.session_state[f"mutasi_{kelas_input}"] = pd.DataFrame(default_mutasi_data)
 
     df_mutasi_edited = st.data_editor(
-        st.session_state["df_mutasi_exact"],
-        key="editor_mutasi_exact",
+        st.session_state[f"mutasi_{kelas_input}"],
+        key=f"editor_mutasi_{kelas_input}",
         num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
     )
 
+    # Function Header Mutasi Dinamis Mengikuti Kelas Sidebar
     def generate_excel_mutasi_html(df_data, bulan, tahun):
         html = f"""
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -718,12 +745,19 @@ with tab4:
             body {{ font-family: 'Times New Roman', serif; }}
             table {{ border-collapse: collapse; width: 100%; }}
             th, td {{ border: 1px solid black; padding: 5px; text-align: center; }}
+            .no-border {{ border: none !important; }}
+            .header-title {{ font-weight: bold; font-size: 14pt; text-align: center; }}
         </style></head>
         <body>
-            <h2 align="center">MUTASI SISWA</h2>
-            <h3 align="center">{nama_sekolah.upper()}</h3>
-            <h4 align="center">TAHUN PELAJARAN {tahun_ajaran}</h4>
-            <p><b>Kelas:</b> {kelas_input} | <b>Bulan:</b> {nama_bulan[bulan-1]}</p>
+            <div class="header-title">MUTASI SISWA</div>
+            <div class="header-title">{nama_sekolah.upper()}</div>
+            <div class="header-title">TAHUN PELAJARAN {tahun_ajaran}</div>
+            <br/><br/>
+            <table class="no-border" style="width: auto; text-align: left;">
+                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Kelas</td><td class="no-border">: {kelas_input}</td></tr>
+                <tr class="no-border"><td class="no-border" style="font-weight:bold;">Bulan</td><td class="no-border">: {nama_bulan[bulan-1]}</td></tr>
+            </table>
+            <br/>
             <table>
                 <thead>
                     <tr style="font-weight:bold;">
@@ -762,7 +796,7 @@ with tab4:
             p_data = data_tersimpan if data_tersimpan else {}
             p_data["df_mutasi"] = df_mutasi_edited.to_dict(orient="records")
             simpan_data_kelas(kelas_input, p_data)
-            st.success(f"✅ Data Mutasi Kelas {kelas_input} Disimpan!")
+            st.success(f"✅ Data Mutasi Kelas {kelas_input} Disimpan Permanen!")
 
     with col_m_btn2:
         excel_mutasi_bytes = generate_excel_mutasi_html(
